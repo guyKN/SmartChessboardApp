@@ -21,12 +21,12 @@ class ChessBoardModel @Inject constructor(val gson: Gson) {
     data class StateChangeMessage(
         val gameActive: Boolean?,
         val gamesToUpload: Int?,
-        val game: GameType?,
+        val game: GameInfo?,
         val boardState: BoardState?,
         val settings: ChessBoardSettings?
     )
 
-    data class GameType(
+    data class GameInfo(
         val gameId: String,
         val engineLevel: String,
         val white: String,
@@ -64,8 +64,9 @@ class ChessBoardModel @Inject constructor(val gson: Gson) {
     private val _numGamesToUpload = MutableStateFlow<Int?>(null)
     val numGamesToUpload = _numGamesToUpload as StateFlow<Int?>
 
-    private val _gameType = MutableStateFlow<GameType?>(null)
-    val gameType = _gameType as StateFlow<GameType?>
+
+    private val _gameInfo = MutableStateFlow<GameInfo?>(null)
+    val gameInfo = _gameInfo as StateFlow<GameInfo?>
 
     private val _boardState = MutableStateFlow<BoardState?>(null)
     val boardState = _boardState as StateFlow<BoardState?>
@@ -93,7 +94,7 @@ class ChessBoardModel @Inject constructor(val gson: Gson) {
                         _numGamesToUpload.value = it
                     }
                     stateChange.game?.let {
-                        _gameType.value = it
+                        _gameInfo.value = it
                     }
                     stateChange.boardState?.let {
                         _boardState.value = it

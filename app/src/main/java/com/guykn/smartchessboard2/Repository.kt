@@ -20,6 +20,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationResponse
@@ -45,6 +46,8 @@ class Repository @Inject constructor(
     companion object {
         private const val TAG = "MA_Repository"
     }
+
+    private var isBroadcastActive = MutableStateFlow<Boolean>(false)
 
     private val _broadcastRound = MutableStateFlow<BroadcastEvent>(BroadcastEvent(null))
     val broadcastRound = _broadcastRound as StateFlow<BroadcastEvent>
@@ -77,46 +80,58 @@ class Repository @Inject constructor(
         // Whether a move is made on the physical chessboard, update the lichess broadcast.
         coroutineScope.launch {
             var prevJob: Job? = null
-            chessBoardModel.boardState.collect { boardState ->
+            var prevGameId: String? = null
+            chessBoardModel.boardState.combine(isBroadcastActive) { boardState, isActive ->
+                Pair(boardState, isActive)
+            }.collect { (boardState, isActive) ->
+                if (!isActive) {
+                    return@collect
+                }
                 val pgn = boardState?.pgn ?: return@collect
                 prevJob?.cancel()
                 prevJob = launch {
-                    _broadcastRound.value.value?.let {
-                        // try to push to the broadcast until you succeed, retrying the request on errors.
-                        while (true) {
-                            try {
-                                Log.d(TAG, "pushing pgn to broadcast")
-                                webManager.pushToBroadcast(it, pgn)
-                                break
-                            } catch (e: Exception) {
-                                when (e) {
-                                    is GenericNetworkException,
-                                    is NotSignedInException,
-                                    is AuthorizationException,
-                                    is JsonParseException -> {
-                                        Log.w(
-                                            TAG,
-                                            "Error pushing pgn to broadcast: ${e.message}"
-                                        )
-                                        break
-                                    }
-                                    is TooManyRequestsException -> {
-                                        Log.w(
-                                            TAG,
-                                            "Too many request sent to lichess, please wait and try again later."
-                                        )
-                                        break
-                                    }
-                                    is IOException -> {
-                                        // in case of IOException, retry the request in a few seconds
-                                        Log.w(
-                                            TAG,
-                                            "Error pushing pgn to broadcast: ${e.message}"
-                                        )
-                                        delay(2500)
-                                    }
-                                    else -> throw e
+                    val isNewGame = prevGameId != chessBoardModel.gameInfo.value?.gameId
+
+                    val broadcastRound: BroadcastRound = if (isNewGame) {
+                        createBroadcastRound()
+                    } else {
+                        _broadcastRound.value.value ?: createBroadcastRound()
+                    }
+
+                    // try to push to the broadcast until you succeed, retrying the request on errors.
+                    while (true) {
+                        try {
+                            Log.d(TAG, "pushing pgn to broadcast")
+                            webManager.pushToBroadcast(broadcastRound, pgn)
+                            break
+                        } catch (e: Exception) {
+                            when (e) {
+                                is GenericNetworkException,
+                                is NotSignedInException,
+                                is AuthorizationException,
+                                is JsonParseException -> {
+                                    Log.w(
+                                        TAG,
+                                        "Error pushing pgn to broadcast: ${e.message}"
+                                    )
+                                    break
                                 }
+                                is TooManyRequestsException -> {
+                                    Log.w(
+                                        TAG,
+                                        "Too many request sent to lichess, please wait and try again later."
+                                    )
+                                    break
+                                }
+                                is IOException -> {
+                                    // in case of IOException, retry the request in a few seconds
+                                    Log.w(
+                                        TAG,
+                                        "Error pushing pgn to broadcast: ${e.message}"
+                                    )
+                                    delay(2500)
+                                }
+                                else -> throw e
                             }
                         }
                     }
@@ -218,9 +233,9 @@ class Repository @Inject constructor(
 
         // When the physical chessboard starts a different game while an online game is active, cancel the online game.
         coroutineScope.launch {
-            chessBoardModel.gameType.collect { gameType ->
+            chessBoardModel.gameInfo.collect { gameType ->
                 val id = activeGame.value.value?.id
-                if (id != null && id != gameType?.gameId){
+                if (id != null && id != gameType?.gameId) {
                     Log.d(TAG, "canceling online game because another game started ")
                     stopOnlineGame()
                 }
@@ -240,14 +255,10 @@ class Repository @Inject constructor(
             }
     }
 
-    suspend fun startBroadcast(): BroadcastRound {
-        stopOnlineGame()
+    private suspend fun createBroadcastRound(): BroadcastRound {
         val broadcastTournament = getFreshBroadcastTournament()
         val broadcastRound = webManager.createBroadcastRound(broadcastTournament)
         _broadcastRound.value = BroadcastEvent(broadcastRound)
-        chessBoardModel.boardState.value?.let { boardState ->
-            webManager.pushToBroadcast(broadcastRound, boardState.pgn)
-        }
         return broadcastRound
     }
 
@@ -259,8 +270,17 @@ class Repository @Inject constructor(
         bluetoothManager.writeMessage(clientToServerMessageProvider.startNormalGame(gameStartRequest))
     }
 
+    fun startBroadcast() {
+        isBroadcastActive.value = true
+        coroutineScope.launch {
+            val broadcastRound = createBroadcastRound()
+
+        }
+    }
+
     fun stopBroadcast() {
         _broadcastRound.value = BroadcastEvent(null)
+        isBroadcastActive.value = false
     }
 
     fun startOnlineGame() {

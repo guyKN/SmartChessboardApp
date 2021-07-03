@@ -10,4 +10,8 @@ open class Event {
             return true
         }
     }
+
+    override fun equals(other: Any?): Boolean {
+        return false
+    }
 }

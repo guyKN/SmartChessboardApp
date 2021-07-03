@@ -126,7 +126,7 @@ class OAuthFragment : Fragment() {
         }
 
         lichessViewModel.broadcastRound.observe(viewLifecycleOwner) { broadcastEvent ->
-            if (broadcastEvent == null) return@observe
+            if (broadcastEvent === null) return@observe
             broadcastEvent.value?.let {
                 broadcastButton.text = getString(R.string.stop_broadcast)
             } ?: kotlin.run {
