@@ -90,14 +90,13 @@ class Repository @Inject constructor(
                 val pgn = boardState?.pgn ?: return@collect
                 prevJob?.cancel()
                 prevJob = launch {
-                    val isNewGame = prevGameId != chessBoardModel.gameInfo.value?.gameId
-
-                    val broadcastRound: BroadcastRound = if (isNewGame) {
+                    val currentGameId = chessBoardModel.gameInfo.value?.gameId
+                    val broadcastRound: BroadcastRound = if (prevGameId != currentGameId) {
                         createBroadcastRound()
                     } else {
                         _broadcastRound.value.value ?: createBroadcastRound()
                     }
-
+                    prevGameId = currentGameId
                     // try to push to the broadcast until you succeed, retrying the request on errors.
                     while (true) {
                         try {
@@ -272,10 +271,6 @@ class Repository @Inject constructor(
 
     fun startBroadcast() {
         isBroadcastActive.value = true
-        coroutineScope.launch {
-            val broadcastRound = createBroadcastRound()
-
-        }
     }
 
     fun stopBroadcast() {

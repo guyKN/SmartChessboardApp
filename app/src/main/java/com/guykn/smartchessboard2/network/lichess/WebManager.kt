@@ -100,8 +100,7 @@ class WebManager @Inject constructor(
             throw it
         } ?: authResponse?.let { response ->
             val tokenResponse = authService.performCoroutineTokenRequest(
-                response.createTokenExchangeRequest(),
-                CLIENT_AUTH
+                response.createTokenExchangeRequest()
             )
             authState.update(tokenResponse, null)
             savedAuthState.authState = authState
@@ -382,7 +381,7 @@ class WebManager @Inject constructor(
 
     @Throws(AuthorizationException::class, NotSignedInException::class)
     private suspend fun getFreshToken(): String {
-        return savedAuthState.authState?.fetchTokensCoroutine(authService, CLIENT_AUTH)
+        return savedAuthState.authState?.fetchTokensCoroutine(authService)
             ?: throw NotSignedInException("Tried to get access token while authState was null.")
     }
 
