@@ -8,11 +8,8 @@ import com.google.gson.JsonParseException
 import com.guykn.smartchessboard2.BroadcastEvent
 import com.guykn.smartchessboard2.LichessGameEvent
 import com.guykn.smartchessboard2.ServiceConnector
-import com.guykn.smartchessboard2.network.lichess.LichessApi
 import com.guykn.smartchessboard2.network.lichess.WebManager
-import com.guykn.smartchessboard2.ui.util.EventWithValue
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import net.openid.appauth.AuthorizationException
 import java.io.IOException
@@ -35,18 +32,20 @@ class LichessViewModel @Inject constructor(private val serviceConnector: Service
     val activeGame: LiveData<LichessGameEvent> =
         serviceConnector.copyLiveData { repository -> repository.activeGame }
 
-    fun createBroadcast() = viewModelScope.launch {
-        try {
-            val repository = serviceConnector.awaitConnected()
-            repository.startBroadcast()
-        } catch (e: Exception) {
-            when (e) {
-                is IOException,
-                is AuthorizationException,
-                is JsonParseException -> {
-                    Log.w(TAG, "Error creating broadcast: ${e.message}")
+    fun createBroadcast() {
+        viewModelScope.launch {
+            try {
+                val repository = serviceConnector.awaitConnected()
+                repository.startBroadcast()
+            } catch (e: Exception) {
+                when (e) {
+                    is IOException,
+                    is AuthorizationException,
+                    is JsonParseException -> {
+                        Log.w(TAG, "Error creating broadcast: ${e.message}")
+                    }
+                    else -> throw e
                 }
-                else -> throw e
             }
         }
     }
@@ -54,14 +53,14 @@ class LichessViewModel @Inject constructor(private val serviceConnector: Service
     fun stopBroadcast() {
         viewModelScope.launch {
             val repository = serviceConnector.awaitConnected()
-            repository.stopGame()
+            repository.stopOnlineGame()
         }
     }
 
     fun startGame() {
         viewModelScope.launch {
             val repository = serviceConnector.awaitConnected()
-            repository.startGame()
+            repository.startOnlineGame()
         }
     }
 
@@ -69,7 +68,7 @@ class LichessViewModel @Inject constructor(private val serviceConnector: Service
     fun stopGame() {
         viewModelScope.launch {
             val repository = serviceConnector.awaitConnected()
-            repository.stopGame()
+            repository.stopOnlineGame()
         }
     }
 }

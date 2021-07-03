@@ -14,8 +14,11 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.widget.SwitchCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import com.guykn.smartchessboard2.ChessBoardSettings
+import com.guykn.smartchessboard2.GameStartRequest
 import com.guykn.smartchessboard2.R
 import com.guykn.smartchessboard2.network.oauth2.getLichessAuthIntent
 import com.guykn.smartchessboard2.ui.OAuthViewModel.UiOAuthState
@@ -32,7 +35,8 @@ class OAuthFragment : Fragment() {
     }
 
     private val oAuthViewModel: OAuthViewModel by activityViewModels()
-    private val lichessViewModel:LichessViewModel by activityViewModels()
+    private val lichessViewModel: LichessViewModel by activityViewModels()
+    private val bluetoothViewModel: BluetoothViewModel by activityViewModels()
 
     private val lichessAuthLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
@@ -45,6 +49,8 @@ class OAuthFragment : Fragment() {
     private lateinit var signInOutButton: Button
     private lateinit var broadcastButton: Button
     private lateinit var startGameButton: Button
+    private lateinit var startOfflineGameButton: Button
+    private lateinit var learningModeSwitch: SwitchCompat
 
 
     private lateinit var authService: AuthorizationService
@@ -77,6 +83,9 @@ class OAuthFragment : Fragment() {
         signInOutButton = view.findViewById(R.id.sign_in)
         broadcastButton = view.findViewById(R.id.start_broadcast)
         startGameButton = view.findViewById(R.id.start_game)
+        startOfflineGameButton = view.findViewById(R.id.start_offline_game)
+        learningModeSwitch = view.findViewById(R.id.learning_mode_switch)
+
 
         oAuthViewModel.oAuthStateLiveData.observe(viewLifecycleOwner) { uiOAuthState ->
             uiOAuthState!!
@@ -97,14 +106,14 @@ class OAuthFragment : Fragment() {
                     signInOutButton.text = getString(R.string.sign_in)
                     broadcastButton.isEnabled = false
                 }
-                is UiOAuthState.AuthorizationLoading ->{
+                is UiOAuthState.AuthorizationLoading -> {
                     progressBar.visibility = View.VISIBLE
                     mainView.alpha = 0.5f
                     isSignedInView.text = getString(R.string.not_signed_in)
                     signInOutButton.isEnabled = false
                     broadcastButton.isEnabled = false
                 }
-                is UiOAuthState.Authorized->{
+                is UiOAuthState.Authorized -> {
                     val userName = uiOAuthState.userInfo.username
                     progressBar.visibility = View.GONE
                     mainView.alpha = 1f
@@ -116,23 +125,23 @@ class OAuthFragment : Fragment() {
             }
         }
 
-        lichessViewModel.broadcastRound.observe(viewLifecycleOwner){ broadcastEvent->
+        lichessViewModel.broadcastRound.observe(viewLifecycleOwner) { broadcastEvent ->
             if (broadcastEvent == null) return@observe
             broadcastEvent.value?.let {
                 broadcastButton.text = getString(R.string.stop_broadcast)
-            }?:kotlin.run {
+            } ?: kotlin.run {
                 broadcastButton.text = getString(R.string.start_broadcast)
             }
         }
 
-        lichessViewModel.broadcastRound.observe(viewLifecycleOwner) { broadcastEvent->
-            if (broadcastEvent?.value != null && broadcastEvent.receive()){
+        lichessViewModel.broadcastRound.observe(viewLifecycleOwner) { broadcastEvent ->
+            if (broadcastEvent?.value != null && broadcastEvent.receive()) {
                 openWebBrowser(broadcastEvent.value.url)
             }
         }
 
-        lichessViewModel.activeGame.observe(viewLifecycleOwner){ gameEvent ->
-            if (gameEvent?.value != null && gameEvent.receive()){
+        lichessViewModel.activeGame.observe(viewLifecycleOwner) { gameEvent ->
+            if (gameEvent?.value != null && gameEvent.receive()) {
                 openWebBrowser(gameEvent.value.url)
             }
         }
@@ -145,7 +154,10 @@ class OAuthFragment : Fragment() {
                         "Error with authorization please try again.",
                         Toast.LENGTH_LONG
                     ).show()
-                } ?: Log.w(TAG, "OAuthFragment observed change to liveData while not attached to a context")
+                } ?: Log.w(
+                    TAG,
+                    "OAuthFragment observed change to liveData while not attached to a context"
+                )
             }
         }
 
@@ -153,16 +165,16 @@ class OAuthFragment : Fragment() {
             if (oAuthViewModel.oAuthStateLiveData.value is UiOAuthState.Authorized) {
                 // the user is already signed in, so they want to sign out
                 oAuthViewModel.signOut()
-            }else{
+            } else {
                 // the user clicked the button to sign in
                 lichessAuthLauncher.launch(authService.getLichessAuthIntent())
             }
         }
         broadcastButton.setOnClickListener {
-            if (lichessViewModel.broadcastRound.value?.value == null){
+            if (lichessViewModel.broadcastRound.value?.value == null) {
                 Log.d(TAG, "Creating broadcast")
                 lichessViewModel.createBroadcast()
-            }else{
+            } else {
                 Log.d(TAG, "Stopping broadcast")
                 lichessViewModel.stopBroadcast()
             }
@@ -171,23 +183,40 @@ class OAuthFragment : Fragment() {
         startGameButton.setOnClickListener {
             lichessViewModel.startGame()
         }
+
+        startOfflineGameButton.setOnClickListener {
+            bluetoothViewModel.startGame(
+                GameStartRequest(
+                    enableEngine = true,
+                    engineColor = "black",
+                    engineLevel = 20
+                )
+            )
+        }
+
+        learningModeSwitch.setOnCheckedChangeListener { _, isChecked ->
+            Log.d(TAG, "learningModeSwitch is ${if (isChecked) "checked" else "not checked"}.")
+            bluetoothViewModel.writeSettings(
+                ChessBoardSettings(learningMode = isChecked)
+            )
+        }
     }
 
     private fun onAuthIntentFinished(result: ActivityResult?) {
         result?.data?.let {
-                val authorizationResponse = AuthorizationResponse.fromIntent(it)
-                val authorizationException = AuthorizationException.fromIntent(it)
-                oAuthViewModel.onAuthorizationIntentFinished(
-                    authorizationResponse,
-                    authorizationException
-                )
+            val authorizationResponse = AuthorizationResponse.fromIntent(it)
+            val authorizationException = AuthorizationException.fromIntent(it)
+            oAuthViewModel.onAuthorizationIntentFinished(
+                authorizationResponse,
+                authorizationException
+            )
         } ?: run {
             Log.d(TAG, "Authorization intent was null")
             oAuthViewModel.onAuthorizationError()
         }
     }
 
-    private fun openWebBrowser(url: String){
+    private fun openWebBrowser(url: String) {
         val intent = Intent(Intent.ACTION_VIEW).apply {
             data = Uri.parse(url)
         }

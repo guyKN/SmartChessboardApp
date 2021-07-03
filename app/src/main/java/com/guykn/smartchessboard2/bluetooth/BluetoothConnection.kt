@@ -27,7 +27,7 @@ import java.nio.ByteOrder
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicBoolean
 
-class BluetoothConnector(
+class BluetoothConnection(
     val bluetoothDevice: BluetoothDevice,
     private val coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : Closeable {

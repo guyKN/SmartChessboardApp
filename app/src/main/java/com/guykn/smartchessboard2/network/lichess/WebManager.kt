@@ -294,7 +294,7 @@ class WebManager @Inject constructor(
         }
     }
 
-    fun gameStream(game: LichessApi.Game): Flow<LichessApi.GameState> = flow {
+    fun gameStream(game: LichessApi.Game): Flow<LichessApi.LichessGameState> = flow {
         networkCall {
             Log.d(TAG, "Streaming Game")
             val userInfo = savedAuthState.userInfo
@@ -328,8 +328,8 @@ class WebManager @Inject constructor(
                                             throw LichessApi.InvalidMessageException("field 'state' must be non-null for type=='gameFull'")
                                         }
                                         val gameState = state.toGameState(
-                                            playerColor
-                                                ?: throw LichessApi.InvalidMessageException("User tried to play in game a he does not own.")
+                                            playerColor = playerColor ?: throw LichessApi.InvalidMessageException("User tried to playe in a game he does not own."),
+                                            gameId = game.id
                                         )
                                         emit(gameState)
                                         if (gameState.isGameOver) {
@@ -338,8 +338,8 @@ class WebManager @Inject constructor(
                                     }
                                     "gameState" -> {
                                         val gameState = gameStreamLine.toGameState(
-                                            playerColor
-                                                ?: throw LichessApi.InvalidMessageException("'gameState' message sent before 'gameFull'")
+                                            playerColor = playerColor ?: throw LichessApi.InvalidMessageException("'gameState' message sent before 'gameFull'"),
+                                            gameId = game.id
                                         )
                                         emit(gameState)
                                         if (gameState.isGameOver) {

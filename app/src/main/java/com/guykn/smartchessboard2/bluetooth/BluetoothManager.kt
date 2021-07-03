@@ -21,16 +21,16 @@ class BluetoothManager @Inject constructor(
         const val TAG = "MA_BluetoothManager"
     }
 
-    private var bluetoothConnector: BluetoothConnector? = null
+    private var bluetoothConnection: BluetoothConnection? = null
     private var bluetoothConnectionJob: Job? = null
 
     fun setTargetDevice(bluetoothDevice: BluetoothDevice?) {
         Log.d(TAG, "Setting target device: ${bluetoothDevice?.name}")
         if (bluetoothDevice == null) {
-            bluetoothConnector?.close()
-        } else if (bluetoothConnector?.bluetoothDevice != bluetoothDevice || bluetoothConnector?.isBluetoothActive != true) {
+            bluetoothConnection?.close()
+        } else if (bluetoothConnection?.bluetoothDevice != bluetoothDevice || bluetoothConnection?.isBluetoothActive != true) {
             bluetoothConnectionJob?.cancel()
-            bluetoothConnector?.close()
+            bluetoothConnection?.close()
             bluetoothConnectionJob = coroutineScope.launch {
                 connectLoop(bluetoothDevice)
             }
@@ -45,8 +45,8 @@ class BluetoothManager @Inject constructor(
                 Log.d(TAG, "Connecting to device: ${bluetoothDevice.name}")
                 try {
                     yield()
-                    BluetoothConnector(bluetoothDevice).use { bluetoothConnector ->
-                        this@BluetoothManager.bluetoothConnector = bluetoothConnector
+                    BluetoothConnection(bluetoothDevice).use { bluetoothConnector ->
+                        this@BluetoothManager.bluetoothConnection = bluetoothConnector
                         chessBoardModel.setBluetoothState(CONNECTING)
                         bluetoothConnector.connect()
                         yield()
@@ -70,13 +70,13 @@ class BluetoothManager @Inject constructor(
 
     @Throws(IOException::class)
     suspend fun writeMessage(message: ClientToServerMessage) {
-        bluetoothConnector?.write(message)
+        bluetoothConnection?.write(message)
             ?: throw IOException("tried to write message while not connected via bluetooth. ")
 
     }
 
 
     fun destroy() {
-        bluetoothConnector?.close()
+        bluetoothConnection?.close()
     }
 }

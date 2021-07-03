@@ -1,8 +1,10 @@
 package com.guykn.smartchessboard2.bluetooth
 
 import android.util.Log
-import com.guykn.smartchessboard2.BluetoothConstants.ServerToClientActions.ON_MOVE
-import com.guykn.smartchessboard2.BluetoothConstants.ServerToClientActions.RET_READ_PGN
+import com.google.gson.Gson
+import com.google.gson.JsonParseException
+import com.guykn.smartchessboard2.BluetoothConstants
+import com.guykn.smartchessboard2.ChessBoardSettings
 import com.guykn.smartchessboard2.ServerToClientMessage
 import dagger.hilt.android.scopes.ServiceScoped
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -10,11 +12,34 @@ import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
 
 @ServiceScoped
-class ChessBoardModel @Inject constructor() {
+class ChessBoardModel @Inject constructor(val gson: Gson) {
 
     companion object{
         const val TAG = "MA_ChessBoardModel"
     }
+
+    data class StateChangeMessage(
+        val gameActive: Boolean?,
+        val gamesToUpload: Int?,
+        val game: GameType?,
+        val boardState: BoardState?,
+        val settings: ChessBoardSettings?
+    )
+
+    data class GameType(
+        val gameId: String,
+        val engineLevel: String,
+        val white: String,
+        val black: String
+    )
+
+    data class BoardState(
+        val fen: String,
+        val pgn: String,
+        val lastMove: String?,
+        val moveCount: Int,
+        val shouldSendMove: Boolean
+    )
 
     enum class BluetoothState {
         BLUETOOTH_NOT_SUPPORTED,
@@ -33,28 +58,53 @@ class ChessBoardModel @Inject constructor() {
     private val _bluetoothState = MutableStateFlow(BluetoothState.DISCONNECTED)
     val bluetoothState: StateFlow<BluetoothState> = _bluetoothState
 
-    fun setBluetoothState(bluetoothState: ChessBoardModel.BluetoothState) {
+    private val _gameActive = MutableStateFlow<Boolean?>(null)
+    val gameActive = _gameActive as StateFlow<Boolean?>
+
+    private val _numGamesToUpload = MutableStateFlow<Int?>(null)
+    val numGamesToUpload = _numGamesToUpload as StateFlow<Int?>
+
+    private val _gameType = MutableStateFlow<GameType?>(null)
+    val gameType = _gameType as StateFlow<GameType?>
+
+    private val _boardState = MutableStateFlow<BoardState?>(null)
+    val boardState = _boardState as StateFlow<BoardState?>
+
+    private val _settings = MutableStateFlow<ChessBoardSettings?>(null)
+    val settings = _settings as StateFlow<ChessBoardSettings?>
+
+    fun setBluetoothState(bluetoothState: BluetoothState) {
         Log.d(BluetoothManager.TAG, "Bluetooth State changed to: $bluetoothState")
         _bluetoothState.value = bluetoothState
     }
 
-    private val _boardPgn = MutableStateFlow<String?>(null)
-    val boardPgn = _boardPgn as StateFlow<String?>
 
-    private val _mostRecentMove = MutableStateFlow<String?>(null)
-    val mostRecentMove = _mostRecentMove as StateFlow<String?>
 
     fun update(message: ServerToClientMessage){
         when(message.action){
-            RET_READ_PGN -> {
-                Log.d(TAG, "board pgn: \n${message.data}")
-                _boardPgn.value = message.data
+            BluetoothConstants.ServerToClientActions.STATE_CHANGED-> {
+                try {
+                    val stateChange: StateChangeMessage =
+                        gson.fromJson(message.data, StateChangeMessage::class.java)
+                    stateChange.gameActive?.let {
+                        _gameActive.value = it
+                    }
+                    stateChange.gamesToUpload?.let {
+                        _numGamesToUpload.value = it
+                    }
+                    stateChange.game?.let {
+                        _gameType.value = it
+                    }
+                    stateChange.boardState?.let {
+                        _boardState.value = it
+                    }
+                    stateChange.settings?.let {
+                        _settings.value = it
+                    }
+                }catch (e: JsonParseException){
+                    Log.w(TAG, "Failed to parse json:\n${e.message}\n${message.data}")
+                }
             }
-            ON_MOVE -> {
-                _mostRecentMove.value = message.data
-            }
-
         }
     }
-
 }

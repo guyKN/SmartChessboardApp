@@ -74,7 +74,7 @@ interface LichessApi {
 
 
     data class GameEvent(val type: String, val game: Game?)
-    data class Game(val id: String){
+    data class Game(val id: String) {
         val url get() = "$LICHESS_BASE_URL/$id"
     }
 
@@ -109,13 +109,13 @@ interface LichessApi {
             }
         }
 
-        fun toGameState(playerColor: String): GameState {
+        fun toGameState(playerColor: String, gameId: String): LichessGameState {
             check(type == "gameState") { "May only convert to gameState when type=='gameState'" }
-            return GameState(
-                moves
-                    ?: throw InvalidMessageException("Response with type 'gameState' must contain a field named 'moves'"),
-                playerColor,
-                winner
+            return LichessGameState(
+                gameId = gameId,
+                clientColor = playerColor,
+                moves = moves ?: throw InvalidMessageException("Moves must be non-null for when type=='gameState'"),
+                winner = winner
             )
         }
     }
@@ -123,7 +123,12 @@ interface LichessApi {
     data class Variant(val key: String)
     data class Player(val name: String?)
 
-    data class GameState(val moves: String, val playerColor: String, val winner: String?) {
+    data class LichessGameState(
+        val gameId: String,
+        val clientColor: String,
+        val moves: String,
+        val winner: String?
+    ) {
         val isGameOver
             get() = winner != null
     }

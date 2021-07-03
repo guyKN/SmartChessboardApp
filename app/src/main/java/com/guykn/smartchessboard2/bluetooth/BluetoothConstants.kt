@@ -2,10 +2,11 @@ package com.guykn.smartchessboard2
 
 import androidx.annotation.IntDef
 import com.google.gson.Gson
-import com.guykn.smartchessboard2.BluetoothConstants.ClientToServerActions.BLUETOOTH_GAME_WRITE_MOVES
-import com.guykn.smartchessboard2.BluetoothConstants.ClientToServerActions.START_BLUETOOTH_GAME
+import com.guykn.smartchessboard2.BluetoothConstants.ClientToServerActions
 import com.guykn.smartchessboard2.network.lichess.LichessApi
+import dagger.hilt.android.scopes.ServiceScoped
 import java.util.*
+import javax.inject.Inject
 
 object BluetoothConstants {
     val CHESS_BOARD_UUID: UUID = UUID.fromString("6c08ff89-2218-449f-9590-66c704994db9")!!
@@ -15,58 +16,31 @@ object BluetoothConstants {
 
     @kotlin.annotation.Retention(AnnotationRetention.SOURCE)
     @IntDef(
-        ClientToServerActions.REQUEST_READ_FEN,
-        ClientToServerActions.REQUEST_READ_PGN,
-        ClientToServerActions.REQUEST_READ_PREFERENCES,
         ClientToServerActions.WRITE_PREFERENCES,
-        ClientToServerActions.REQUEST_PGN_FILE_NAMES,
-        ClientToServerActions.REQUEST_READ_PGN_FILE,
-        ClientToServerActions.REQUEST_ARCHIVE_PGN_FILE,
-        ClientToServerActions.REQUEST_PGN_FILE_COUNT,
-        ClientToServerActions.START_BLUETOOTH_GAME,
-        ClientToServerActions.BLUETOOTH_GAME_WRITE_MOVES,
+        ClientToServerActions.START_NORMAL_GAME,
+        ClientToServerActions.FORCE_BLUETOOTH_MOVES,
         ClientToServerActions.TEST_LEDS
     )
     annotation class ClientToServerAction
 
     object ClientToServerActions {
-        const val REQUEST_READ_FEN = 0
-        const val REQUEST_READ_PGN = 1
-        const val REQUEST_READ_PREFERENCES = 2
-        const val WRITE_PREFERENCES = 3
-        const val REQUEST_PGN_FILE_NAMES = 4
-        const val REQUEST_READ_PGN_FILE = 5
-        const val REQUEST_ARCHIVE_PGN_FILE = 6
-        const val REQUEST_PGN_FILE_COUNT = 7
-        const val START_BLUETOOTH_GAME = 8
-        const val BLUETOOTH_GAME_WRITE_MOVES = 9
-        const val TEST_LEDS = 10
+        const val WRITE_PREFERENCES = 0
+        const val START_NORMAL_GAME = 1
+        const val FORCE_BLUETOOTH_MOVES = 2
+        const val TEST_LEDS = 3
+
     }
 
     @kotlin.annotation.Retention(AnnotationRetention.SOURCE)
     @IntDef(
-        ServerToClientActions.RET_READ_FEN,
-        ServerToClientActions.RET_READ_PGN,
-        ServerToClientActions.RET_READ_PREFERENCES,
-        ServerToClientActions.RET_WRITE_PREFERENCES,
-        ServerToClientActions.ON_MOVE,
+        ServerToClientActions.STATE_CHANGED,
         ServerToClientActions.ON_ERROR,
-        ServerToClientActions.RET_PGN_FILE_NAMES,
-        ServerToClientActions.RET_PGN_FILE,
-        ServerToClientActions.RET_PGN_FILE_COUNT
     )
     annotation class ServerToClientAction
 
     object ServerToClientActions {
-        const val RET_READ_FEN = 0
-        const val RET_READ_PGN = 1
-        const val RET_READ_PREFERENCES = 2
-        const val RET_WRITE_PREFERENCES = 3
-        const val ON_MOVE = 4
-        const val ON_ERROR = 5
-        const val RET_PGN_FILE_NAMES = 6
-        const val RET_PGN_FILE = 7
-        const val RET_PGN_FILE_COUNT = 8
+        const val STATE_CHANGED = 0
+        const val ON_ERROR = 1
     }
 }
 
@@ -75,24 +49,51 @@ data class ServerToClientMessage(
     val data: String
 )
 
-data class GameStartMessage(val gameId: String, val clientColor: String)
-
 data class ClientToServerMessage(
     @BluetoothConstants.ClientToServerAction val action: Int,
     val data: String
-) {
-    companion object {
-        fun writeMoves(gameState: LichessApi.GameState): ClientToServerMessage {
-            return ClientToServerMessage(BLUETOOTH_GAME_WRITE_MOVES, gameState.moves)
-        }
+)
 
-        fun bluetoothGameStart(
-            game: LichessApi.Game,
-            playerColor: String,
-            gson: Gson
-        ): ClientToServerMessage {
-            val gameStartMessage = GameStartMessage(game.id, playerColor)
-            return ClientToServerMessage(START_BLUETOOTH_GAME, gson.toJson(gameStartMessage))
-        }
+data class ChessBoardSettings(val learningMode: Boolean)
+data class GameStartRequest(
+    val enableEngine: Boolean,
+    val engineColor: String,
+    val engineLevel: Int,
+    val gameId: String? = null,
+    val startFen: String? = null
+)
+
+data class ForceBluetoothMovesRequest(
+    val gameId: String,
+    val clientColor: String,
+    val moves: String,
+    val winner: String?
+)
+
+@ServiceScoped
+class ClientToServerMessageProvider @Inject constructor(val gson: Gson) {
+    fun writePreferences(settings: ChessBoardSettings):ClientToServerMessage {
+        return ClientToServerMessage(
+            ClientToServerActions.WRITE_PREFERENCES,
+            gson.toJson(settings)
+        )
+    }
+
+    fun startNormalGame(request: GameStartRequest): ClientToServerMessage{
+        return ClientToServerMessage(
+            ClientToServerActions.START_NORMAL_GAME,
+            gson.toJson(request)
+        )
+    }
+
+    fun forceBluetoothMoves(lichessGameState: LichessApi.LichessGameState): ClientToServerMessage{
+        return ClientToServerMessage(
+            ClientToServerActions.FORCE_BLUETOOTH_MOVES,
+            gson.toJson(lichessGameState)
+        )
+    }
+
+    fun testLeds(): ClientToServerMessage{
+        return ClientToServerMessage(ClientToServerActions.TEST_LEDS, "")
     }
 }
