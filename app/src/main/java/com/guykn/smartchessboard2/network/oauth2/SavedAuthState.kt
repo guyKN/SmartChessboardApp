@@ -18,7 +18,6 @@ class SavedAuthState @Inject constructor(
     @ApplicationContext context: Context,
     private val gson: Gson
 ) {
-    // TODO: 7/4/2021 Make UserInfo also include the user's id
     companion object {
         private const val TAG = "MA_SavedAuthState"
 
