@@ -6,9 +6,12 @@ import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.coroutineScope
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
+import com.guykn.smartchessboard2.Repository
+import com.guykn.smartchessboard2.bluetooth.BluetoothManager
 import com.guykn.smartchessboard2.network.lichess.LichessApi
 import com.guykn.smartchessboard2.network.oauth2.LICHESS_BASE_URL
 import com.guykn.smartchessboard2.reflection.NullableTypAdapterFactory
+import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -76,4 +79,12 @@ object ServiceModule {
 
         return retrofit.create(LichessApi::class.java)
     }
+}
+
+@Module
+@InstallIn(ServiceComponent::class)
+abstract class ServiceModule2 {
+    @Binds
+    abstract fun bindPgnFilesCallback(repository: Repository): BluetoothManager.PgnFilesCallback
+
 }

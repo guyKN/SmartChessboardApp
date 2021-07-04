@@ -1,8 +1,8 @@
-package com.guykn.smartchessboard2
+package com.guykn.smartchessboard2.bluetooth
 
 import androidx.annotation.IntDef
 import com.google.gson.Gson
-import com.guykn.smartchessboard2.BluetoothConstants.ClientToServerActions
+import com.guykn.smartchessboard2.bluetooth.BluetoothConstants.ClientToServerActions
 import com.guykn.smartchessboard2.network.lichess.LichessApi
 import dagger.hilt.android.scopes.ServiceScoped
 import java.util.*
@@ -19,6 +19,8 @@ object BluetoothConstants {
         ClientToServerActions.WRITE_PREFERENCES,
         ClientToServerActions.START_NORMAL_GAME,
         ClientToServerActions.FORCE_BLUETOOTH_MOVES,
+        ClientToServerActions.REQUEST_PGN_FILES,
+        ClientToServerActions.REQUEST_ARCHIVE_PGN_FILE,
         ClientToServerActions.TEST_LEDS
     )
     annotation class ClientToServerAction
@@ -27,20 +29,24 @@ object BluetoothConstants {
         const val WRITE_PREFERENCES = 0
         const val START_NORMAL_GAME = 1
         const val FORCE_BLUETOOTH_MOVES = 2
-        const val TEST_LEDS = 3
+        const val REQUEST_PGN_FILES = 3
+        const val REQUEST_ARCHIVE_PGN_FILE = 4
+        const val TEST_LEDS = 5
 
     }
 
     @kotlin.annotation.Retention(AnnotationRetention.SOURCE)
     @IntDef(
         ServerToClientActions.STATE_CHANGED,
+        ServerToClientActions.RET_PGN_FILES,
         ServerToClientActions.ON_ERROR,
     )
     annotation class ServerToClientAction
 
     object ServerToClientActions {
         const val STATE_CHANGED = 0
-        const val ON_ERROR = 1
+        const val RET_PGN_FILES = 1
+        const val ON_ERROR = 2
     }
 }
 
@@ -63,37 +69,52 @@ data class GameStartRequest(
     val startFen: String? = null
 )
 
-data class ForceBluetoothMovesRequest(
-    val gameId: String,
-    val clientColor: String,
-    val moves: String,
-    val winner: String?
+data class ArchivePgnFileRequest(val name: String)
+
+data class PgnFilesResponse(
+    val files: List<PgnFile>
+)
+
+data class PgnFile(
+    val name: String,
+    val pgn: String
 )
 
 @ServiceScoped
 class ClientToServerMessageProvider @Inject constructor(val gson: Gson) {
-    fun writePreferences(settings: ChessBoardSettings):ClientToServerMessage {
+    fun writePreferences(settings: ChessBoardSettings): ClientToServerMessage {
         return ClientToServerMessage(
             ClientToServerActions.WRITE_PREFERENCES,
             gson.toJson(settings)
         )
     }
 
-    fun startNormalGame(request: GameStartRequest): ClientToServerMessage{
+    fun startNormalGame(request: GameStartRequest): ClientToServerMessage {
         return ClientToServerMessage(
             ClientToServerActions.START_NORMAL_GAME,
             gson.toJson(request)
         )
     }
 
-    fun forceBluetoothMoves(lichessGameState: LichessApi.LichessGameState): ClientToServerMessage{
+    fun forceBluetoothMoves(lichessGameState: LichessApi.LichessGameState): ClientToServerMessage {
         return ClientToServerMessage(
             ClientToServerActions.FORCE_BLUETOOTH_MOVES,
             gson.toJson(lichessGameState)
         )
     }
 
-    fun testLeds(): ClientToServerMessage{
+    fun requestPgnFiles(): ClientToServerMessage{
+        return ClientToServerMessage(ClientToServerActions.REQUEST_PGN_FILES, "")
+    }
+
+    fun requestArchivePgnFile(fileName: String): ClientToServerMessage{
+        return ClientToServerMessage(
+            ClientToServerActions.REQUEST_ARCHIVE_PGN_FILE,
+            gson.toJson(ArchivePgnFileRequest(fileName))
+        )
+    }
+
+    fun testLeds(): ClientToServerMessage {
         return ClientToServerMessage(ClientToServerActions.TEST_LEDS, "")
     }
 }

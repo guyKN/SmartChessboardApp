@@ -4,8 +4,8 @@ import android.util.Log
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.guykn.smartchessboard2.ChessBoardSettings
-import com.guykn.smartchessboard2.GameStartRequest
+import com.guykn.smartchessboard2.bluetooth.ChessBoardSettings
+import com.guykn.smartchessboard2.bluetooth.GameStartRequest
 import com.guykn.smartchessboard2.ServiceConnector
 import com.guykn.smartchessboard2.bluetooth.ChessBoardModel
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -42,6 +42,17 @@ class BluetoothViewModel @Inject constructor(private val serviceConnector: Servi
                 repository.writeSettings(settings)
             }catch (e: IOException){
                 Log.w(TAG, "Error writing settings to chessboard: ${e.message}")
+            }
+        }
+    }
+
+    fun uploadPgn(){
+        viewModelScope.launch {
+            try {
+                val repository = serviceConnector.awaitConnected()
+                repository.uploadPgn()
+            }catch (e: IOException){
+                Log.w(TAG, "Error uploading pgn: ${e.message}")
             }
         }
     }

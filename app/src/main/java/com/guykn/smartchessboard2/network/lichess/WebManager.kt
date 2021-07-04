@@ -7,6 +7,7 @@ import com.google.gson.JsonParseException
 import com.guykn.smartchessboard2.network.lichess.LichessApi.UserInfo
 import com.guykn.smartchessboard2.network.lines
 import com.guykn.smartchessboard2.network.oauth2.*
+import com.guykn.smartchessboard2.ui.util.Event
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.scopes.ServiceScoped
 import kotlinx.coroutines.flow.*
@@ -22,7 +23,6 @@ import java.io.IOException
 import javax.inject.Inject
 
 // TODO: 6/26/2021 Store lichess User id in addition to username, and use it.
-// TODO: 6/30/2021 Incorporate the new lichess OAuth protocol
 
 @ServiceScoped
 class WebManager @Inject constructor(
@@ -43,21 +43,23 @@ class WebManager @Inject constructor(
         class TooManyRequests(val endTime: Long) : InternetState()
     }
 
+    sealed class UiOAuthState : Event() {
+        class NotAuthorized : UiOAuthState()
+        class AuthorizationLoading : UiOAuthState()
+        class Authorized(val userInfo: LichessApi.UserInfo) : UiOAuthState()
+    }
+
     private val _internetState = MutableStateFlow<InternetState>(InternetState.Connected)
     val internetState = _internetState as StateFlow<InternetState>
+
+    private val _uiAuthState = MutableStateFlow<UiOAuthState>(savedAuthState.currentUiAuthState())
+    val uiAuthState = _uiAuthState as StateFlow<UiOAuthState>
 
     private val authService = AuthorizationService(context)
 
     // TODO: 6/26/2021 save this value on disk, so that closing and opening the app will keep it.
     // when recieving a 429 http code from the server, we must wait 1 minute until resuming API usage. this variable tracks the time that we are allowed to use the API in.
     private var timeForValidRequests: Long = 0
-
-    val isLoggedIn
-        get() = userInfo !== null
-
-    val userInfo
-        get() = savedAuthState.userInfo
-
     /**
      * Utility function that
      */
@@ -95,39 +97,46 @@ class WebManager @Inject constructor(
         authResponse: AuthorizationResponse?,
         exception: AuthorizationException?
     ): UserInfo = networkCall {
-        val authState = AuthState(authResponse, exception)
-        exception?.let {
-            throw it
-        } ?: authResponse?.let { response ->
-            val tokenResponse = authService.performCoroutineTokenRequest(
-                response.createTokenExchangeRequest()
-            )
-            authState.update(tokenResponse, null)
-            savedAuthState.authState = authState
-            val accessToken = getFreshToken()
-            val userInfoResponse: Response<UserInfo> =
-                lichessApi.getUserInfo(formatAuthHeader(accessToken))
+        _uiAuthState.value = UiOAuthState.AuthorizationLoading()
+        try {
+            val authState = AuthState(authResponse, exception)
+            exception?.let {
+                throw it
+            } ?: authResponse?.let { response ->
+                val tokenResponse = authService.performCoroutineTokenRequest(
+                    response.createTokenExchangeRequest()
+                )
+                authState.update(tokenResponse, null)
+                savedAuthState.authState = authState
+                val accessToken = getFreshToken()
+                val userInfoResponse: Response<UserInfo> =
+                    lichessApi.getUserInfo(formatAuthHeader(accessToken))
 
-            when (userInfoResponse.code()) {
-                200 -> {
-                    userInfoResponse.body()?.let {
-                        savedAuthState.userInfo = it
-                        return it
+                when (userInfoResponse.code()) {
+                    200 -> {
+                        userInfoResponse.body()?.let {
+                            savedAuthState.userInfo = it
+                            _uiAuthState.value = UiOAuthState.Authorized(it)
+                            return it
+                        }
+                            ?: throw GenericNetworkException("Error creating broadcast tournament: got http code 200, but no response body. ")
                     }
-                        ?: throw GenericNetworkException("Error creating broadcast tournament: got http code 200, but no response body. ")
-                }
-                401 -> {
-                    savedAuthState.clear()
-                    throw NotSignedInException("Error getting user info: http code 401 unauthorized error.")
-                }
-                429 -> on429httpStatus()
-                else -> {
-                    savedAuthState.clear()
-                    throw GenericNetworkException("Error creating broadcast round: Received http error code: ${userInfoResponse.code()}. ")
+                    401 -> {
+                        savedAuthState.clear()
+                        throw NotSignedInException("Error getting user info: http code 401 unauthorized error.")
+                    }
+                    429 -> on429httpStatus()
+                    else -> {
+                        savedAuthState.clear()
+                        throw GenericNetworkException("Error creating broadcast round: Received http error code: ${userInfoResponse.code()}. ")
+                    }
                 }
             }
+            ?: throw IllegalStateException("Either response or exception must be non-null for fetch tokens")
+        }catch (e: Throwable){
+            _uiAuthState.value = UiOAuthState.NotAuthorized()
+            throw e
         }
-        ?: throw IllegalStateException("Either response or exception must be non-null for fetch tokens")
     }
 
     @Throws(AuthorizationException::class, NotSignedInException::class)
@@ -310,6 +319,7 @@ class WebManager @Inject constructor(
                         var playerColor: String? = null
                         response.body?.lines?.collect { line ->
                             try {
+                                Log.d(TAG, "Line from lichess game stream: \n$line")
                                 val gameStreamLine =
                                     gson.fromJson(line, LichessApi.GameStreamLine::class.java)
                                 when (gameStreamLine.type) {
@@ -320,13 +330,13 @@ class WebManager @Inject constructor(
                                         playerColor = gameStreamLine.playerColor(userInfo)
                                             ?: throw LichessApi.InvalidGameException("User tried to play in game a he does not own.")
 
-                                        val state = gameStreamLine.state
+                                        val stateLine = gameStreamLine.state
                                             ?: throw LichessApi.InvalidMessageException("field 'state' must be non-null for type=='gameFull'")
 
-                                        if (state.type != "gameState") {
+                                        if (stateLine.type != "gameState") {
                                             throw LichessApi.InvalidMessageException("field 'state' must be non-null for type=='gameFull'")
                                         }
-                                        val gameState = state.toGameState(
+                                        val gameState = stateLine.toGameState(
                                             playerColor = playerColor ?: throw LichessApi.InvalidMessageException("User tried to playe in a game he does not own."),
                                             gameId = game.id
                                         )
@@ -373,6 +383,7 @@ class WebManager @Inject constructor(
     // TODO: 5/12/2021 Make this function sign out using oAuth2 sign out protocol
     fun signOut() {
         savedAuthState.clear()
+        _uiAuthState.value = UiOAuthState.NotAuthorized()
     }
 
     fun destroy() {

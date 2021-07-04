@@ -2,9 +2,9 @@ package com.guykn.smartchessboard2
 
 import android.bluetooth.BluetoothDevice
 import android.util.Log
+import com.google.gson.Gson
 import com.google.gson.JsonParseException
-import com.guykn.smartchessboard2.bluetooth.BluetoothManager
-import com.guykn.smartchessboard2.bluetooth.ChessBoardModel
+import com.guykn.smartchessboard2.bluetooth.*
 import com.guykn.smartchessboard2.bluetooth.ChessBoardModel.BluetoothState.CONNECTED
 import com.guykn.smartchessboard2.network.lichess.LichessApi
 import com.guykn.smartchessboard2.network.lichess.LichessApi.BroadcastRound
@@ -25,8 +25,10 @@ import kotlinx.coroutines.launch
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationResponse
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
+// TODO: 7/4/2021 Make sure error handling is done properly with kotlin flows (maybe use the flow.catch operator)
 // todo: replace destroy callbacks with lifecycle-aware components
 // TODO: 6/30/2021 Make sure everything is closed properly when the service is destroyed
 
@@ -40,8 +42,9 @@ class Repository @Inject constructor(
     private val bluetoothManager: BluetoothManager,
     private val savedBroadcastTournament: SavedBroadcastTournament,
     private val clientToServerMessageProvider: ClientToServerMessageProvider,
+    private val gson: Gson,
     val chessBoardModel: ChessBoardModel
-) {
+) : BluetoothManager.PgnFilesCallback {
 
     companion object {
         private const val TAG = "MA_Repository"
@@ -52,7 +55,7 @@ class Repository @Inject constructor(
     private val _broadcastRound = MutableStateFlow<BroadcastEvent>(BroadcastEvent(null))
     val broadcastRound = _broadcastRound as StateFlow<BroadcastEvent>
 
-    private var isOnlineGameActive = false
+    private val isOnlineGameActive = AtomicBoolean(false)
 
     private val _activeGame = MutableStateFlow<LichessGameEvent>(LichessGameEvent(null))
 
@@ -65,22 +68,20 @@ class Repository @Inject constructor(
     @Suppress("MemberVisibilityCanBePrivate")
     val lichessGameState = _lichessGameState as StateFlow<LichessApi.LichessGameState?>
 
+    private val isRequestingPgnFiles = AtomicBoolean(false)
+
     val internetState: StateFlow<WebManager.InternetState> = webManager.internetState
 
     private var lichessGameJob: Job? = null
 
-    val isLichessLoggedIn: Boolean
-        get() = webManager.isLoggedIn
-
-    val lichessUserInfo: LichessApi.UserInfo?
-        get() = webManager.userInfo
+    val uiOAuthState: StateFlow<WebManager.UiOAuthState> = webManager.uiAuthState
 
     init {
-        // TODO: 7/2/2021 Whenever a new game starts, create a new broadcast. 
         // Whether a move is made on the physical chessboard, update the lichess broadcast.
         coroutineScope.launch {
             var prevJob: Job? = null
             var prevGameId: String? = null
+            // todo: replace with zip
             chessBoardModel.boardState.combine(isBroadcastActive) { boardState, isActive ->
                 Pair(boardState, isActive)
             }.collect { (boardState, isActive) ->
@@ -279,13 +280,13 @@ class Repository @Inject constructor(
     }
 
     fun startOnlineGame() {
-        if (isOnlineGameActive) {
+        if (isOnlineGameActive.get()) {
             Log.w(TAG, "tried to stream game while game was already active.")
             return
         }
         stopBroadcast()
         lichessGameJob = coroutineScope.launch {
-            isOnlineGameActive = true
+            isOnlineGameActive.set(true)
             var shouldStop = false
             try {
                 while (!shouldStop) {
@@ -342,7 +343,7 @@ class Repository @Inject constructor(
             } finally {
                 Log.d(TAG, "Done streaming game.")
                 _activeGame.value = LichessGameEvent(null)
-                isOnlineGameActive = false
+                isOnlineGameActive.set(false)
             }
         }
     }
@@ -359,8 +360,46 @@ class Repository @Inject constructor(
         bluetoothManager.setTargetDevice(bluetoothDevice)
     }
 
+    suspend fun uploadPgn() {
+        isRequestingPgnFiles.set(true)
+        try {
+            bluetoothManager.writeMessage(clientToServerMessageProvider.requestPgnFiles())
+        }catch (e: IOException){
+            isRequestingPgnFiles.set(false)
+            throw e
+        }
+    }
+
     fun destroy() {
         webManager.destroy()
         bluetoothManager.destroy()
+    }
+
+    override fun onPgnFilesSent(messageData: String) {
+        if (!isRequestingPgnFiles.get()) {
+            Log.w(TAG, "Received pgn files from bluetooth while not requesting pgn files.")
+            return
+        }
+        isRequestingPgnFiles.set(false)
+
+        coroutineScope.launch {
+            try {
+                val pgnFiles = gson.fromJson(messageData, PgnFilesResponse::class.java)
+                for (file in pgnFiles.files) {
+                    webManager.importGame(file.pgn)
+                    bluetoothManager.writeMessage(
+                        clientToServerMessageProvider.requestArchivePgnFile(
+                            file.name
+                        )
+                    )
+                }
+            } catch (e: JsonParseException) {
+                Log.w(TAG, "Error parsing pgn files: \n${e.message}\n${messageData}")
+            }catch (e: IOException){
+                Log.w(TAG, "error uploading pgn files: ${e.message}")
+            }catch (e: AuthorizationException){
+                Log.w(TAG, "error uploading pgn files: ${e.message}")
+            }
+        }
     }
 }

@@ -4,11 +4,8 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothSocket
 import android.util.Log
-import com.guykn.smartchessboard2.BluetoothConstants
-import com.guykn.smartchessboard2.BluetoothConstants.MESSAGE_HEAD_LENGTH
-import com.guykn.smartchessboard2.BluetoothConstants.ServerToClientAction
-import com.guykn.smartchessboard2.ClientToServerMessage
-import com.guykn.smartchessboard2.ServerToClientMessage
+import com.guykn.smartchessboard2.bluetooth.BluetoothConstants.MESSAGE_HEAD_LENGTH
+import com.guykn.smartchessboard2.bluetooth.BluetoothConstants.ServerToClientAction
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow

@@ -2,9 +2,10 @@ package com.guykn.smartchessboard2.bluetooth
 
 import android.bluetooth.BluetoothDevice
 import android.util.Log
-import com.guykn.smartchessboard2.ClientToServerMessage
+import com.guykn.smartchessboard2.bluetooth.BluetoothConstants.ServerToClientActions
 import com.guykn.smartchessboard2.bluetooth.ChessBoardModel.*
 import com.guykn.smartchessboard2.bluetooth.ChessBoardModel.BluetoothState.*
+import dagger.Lazy
 import dagger.hilt.android.scopes.ServiceScoped
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collect
@@ -14,11 +15,17 @@ import javax.inject.Inject
 @ServiceScoped
 class BluetoothManager @Inject constructor(
     private val coroutineScope: CoroutineScope,
-    private val chessBoardModel: ChessBoardModel
+    private val chessBoardModel: ChessBoardModel,
+    private val pgnFilesCallback: dagger.Lazy<PgnFilesCallback>
 ) {
 
     companion object {
         const val TAG = "MA_BluetoothManager"
+    }
+
+
+    interface PgnFilesCallback {
+        fun onPgnFilesSent(messageData: String)
     }
 
     private var bluetoothConnection: BluetoothConnection? = null
@@ -52,7 +59,14 @@ class BluetoothManager @Inject constructor(
                         yield()
                         chessBoardModel.setBluetoothState(CONNECTED)
                         bluetoothConnector.serverMessageFlow.collect { message ->
-                            chessBoardModel.update(message)
+                            when(message.action){
+                                ServerToClientActions.STATE_CHANGED ->{
+                                    chessBoardModel.update(message.data)
+                                }
+                                ServerToClientActions.RET_PGN_FILES -> {
+                                    pgnFilesCallback.get().onPgnFilesSent(message.data)
+                                }
+                            }
                         }
                     }
                 } catch (e: IOException) {

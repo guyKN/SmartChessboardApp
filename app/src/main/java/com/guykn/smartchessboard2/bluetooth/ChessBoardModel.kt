@@ -3,9 +3,6 @@ package com.guykn.smartchessboard2.bluetooth
 import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.JsonParseException
-import com.guykn.smartchessboard2.BluetoothConstants
-import com.guykn.smartchessboard2.ChessBoardSettings
-import com.guykn.smartchessboard2.ServerToClientMessage
 import dagger.hilt.android.scopes.ServiceScoped
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,7 +11,7 @@ import javax.inject.Inject
 @ServiceScoped
 class ChessBoardModel @Inject constructor(val gson: Gson) {
 
-    companion object{
+    companion object {
         const val TAG = "MA_ChessBoardModel"
     }
 
@@ -80,32 +77,28 @@ class ChessBoardModel @Inject constructor(val gson: Gson) {
     }
 
 
-
-    fun update(message: ServerToClientMessage){
-        when(message.action){
-            BluetoothConstants.ServerToClientActions.STATE_CHANGED-> {
-                try {
-                    val stateChange: StateChangeMessage =
-                        gson.fromJson(message.data, StateChangeMessage::class.java)
-                    stateChange.gameActive?.let {
-                        _gameActive.value = it
-                    }
-                    stateChange.gamesToUpload?.let {
-                        _numGamesToUpload.value = it
-                    }
-                    stateChange.game?.let {
-                        _gameInfo.value = it
-                    }
-                    stateChange.boardState?.let {
-                        _boardState.value = it
-                    }
-                    stateChange.settings?.let {
-                        _settings.value = it
-                    }
-                }catch (e: JsonParseException){
-                    Log.w(TAG, "Failed to parse json:\n${e.message}\n${message.data}")
-                }
+    fun update(messageData: String) {
+        try {
+            val stateChange: StateChangeMessage =
+                gson.fromJson(messageData, StateChangeMessage::class.java)
+            stateChange.gameActive?.let {
+                _gameActive.value = it
             }
+            stateChange.gamesToUpload?.let {
+                _numGamesToUpload.value = it
+            }
+            stateChange.game?.let {
+                _gameInfo.value = it
+            }
+            stateChange.boardState?.let {
+                _boardState.value = it
+            }
+            stateChange.settings?.let {
+                _settings.value = it
+            }
+        } catch (e: JsonParseException) {
+            Log.w(TAG, "Failed to parse json:\n${e.message}\n$messageData")
         }
+
     }
 }

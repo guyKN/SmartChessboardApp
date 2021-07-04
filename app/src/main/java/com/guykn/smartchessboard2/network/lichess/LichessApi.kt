@@ -13,7 +13,7 @@ interface LichessApi {
      */
     class InvalidMessageException(message: String) : Exception(message)
 
-    data class UserInfo(val username: String)
+    data class UserInfo(val id: String, val username: String)
 
     @GET("/api/account")
     suspend fun getUserInfo(@Header("Authorization") authentication: String): Response<UserInfo>
@@ -102,9 +102,9 @@ interface LichessApi {
         }
 
         fun playerColor(userInfo: UserInfo): String? {
-            return when (userInfo.username) {
-                white?.name -> "white"
-                black?.name -> "black"
+            return when (userInfo.id) {
+                white?.id -> "white"
+                black?.id -> "black"
                 else -> null
             }
         }
@@ -115,13 +115,13 @@ interface LichessApi {
                 gameId = gameId,
                 clientColor = playerColor,
                 moves = moves ?: throw InvalidMessageException("Moves must be non-null for when type=='gameState'"),
-                winner = winner
+                winner = if (status == "draw") "draw" else winner
             )
         }
     }
 
     data class Variant(val key: String)
-    data class Player(val name: String?)
+    data class Player(val id: String?)
 
     data class LichessGameState(
         val gameId: String,

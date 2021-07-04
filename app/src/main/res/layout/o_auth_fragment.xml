@@ -24,34 +24,42 @@
             android:id="@+id/is_signed_in"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_margin="30dp" />
+            android:layout_margin="15dp" />
 
 
         <Button
             android:id="@+id/sign_in"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_margin="30dp"/>
+            android:layout_margin="15dp"/>
 
         <Button
             android:id="@+id/start_broadcast"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_margin="30dp"/>
+            android:layout_margin="15dp"/>
 
         <Button
             android:id="@+id/start_game"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/start_online_game"
-            android:layout_margin="30dp"/>
+            android:layout_margin="15dp"/>
 
         <Button
             android:id="@+id/start_offline_game"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/start_offline_game"
-            android:layout_margin="30dp"/>
+            android:layout_margin="15dp"/>
+
+        <Button
+            android:id="@+id/upload_games"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/upload_games"
+            android:layout_margin="15dp"/>
+
 
         <androidx.appcompat.widget.SwitchCompat
             android:id="@+id/learning_mode_switch"

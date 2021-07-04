@@ -17,11 +17,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.widget.SwitchCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
-import com.guykn.smartchessboard2.ChessBoardSettings
-import com.guykn.smartchessboard2.GameStartRequest
+import com.guykn.smartchessboard2.bluetooth.ChessBoardSettings
+import com.guykn.smartchessboard2.bluetooth.GameStartRequest
 import com.guykn.smartchessboard2.R
+import com.guykn.smartchessboard2.network.lichess.WebManager
+import com.guykn.smartchessboard2.network.lichess.WebManager.UiOAuthState
 import com.guykn.smartchessboard2.network.oauth2.getLichessAuthIntent
-import com.guykn.smartchessboard2.ui.OAuthViewModel.UiOAuthState
 import dagger.hilt.android.AndroidEntryPoint
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationResponse
@@ -50,6 +51,7 @@ class OAuthFragment : Fragment() {
     private lateinit var broadcastButton: Button
     private lateinit var startGameButton: Button
     private lateinit var startOfflineGameButton: Button
+    private lateinit var uploadGamesButton: Button
     private lateinit var learningModeSwitch: SwitchCompat
 
 
@@ -84,20 +86,13 @@ class OAuthFragment : Fragment() {
         broadcastButton = view.findViewById(R.id.start_broadcast)
         startGameButton = view.findViewById(R.id.start_game)
         startOfflineGameButton = view.findViewById(R.id.start_offline_game)
+        uploadGamesButton = view.findViewById(R.id.upload_games)
         learningModeSwitch = view.findViewById(R.id.learning_mode_switch)
 
 
         oAuthViewModel.oAuthStateLiveData.observe(viewLifecycleOwner) { uiOAuthState ->
             uiOAuthState!!
             when (uiOAuthState) {
-                is UiOAuthState.NotYetLoaded -> {
-                    progressBar.visibility = View.VISIBLE
-                    mainView.alpha = 0.5f
-                    isSignedInView.text = getString(R.string.not_signed_in)
-                    signInOutButton.isEnabled = false
-                    signInOutButton.text = getString(R.string.sign_in)
-                    broadcastButton.isEnabled = false
-                }
                 is UiOAuthState.NotAuthorized -> {
                     progressBar.visibility = View.GONE
                     mainView.alpha = 1f
@@ -192,6 +187,10 @@ class OAuthFragment : Fragment() {
                     engineLevel = 20
                 )
             )
+        }
+
+        uploadGamesButton.setOnClickListener {
+            bluetoothViewModel.uploadPgn()
         }
 
         learningModeSwitch.setOnCheckedChangeListener { _, isChecked ->

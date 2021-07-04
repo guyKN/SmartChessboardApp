@@ -9,4 +9,5 @@
     <string name="start_online_game">Start Online Game</string>
     <string name="start_offline_game">Start Offline Game</string>
     <string name="learning_mode">Learning Mode</string>
+    <string name="upload_games">Upload Games</string>
 </resources>

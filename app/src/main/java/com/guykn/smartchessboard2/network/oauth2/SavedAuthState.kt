@@ -3,7 +3,10 @@ package com.guykn.smartchessboard2.network.oauth2
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import com.google.gson.Gson
+import com.google.gson.JsonParseException
 import com.guykn.smartchessboard2.network.lichess.LichessApi.UserInfo
+import com.guykn.smartchessboard2.network.lichess.WebManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.scopes.ServiceScoped
 import net.openid.appauth.AuthState
@@ -11,7 +14,11 @@ import org.json.JSONException
 import javax.inject.Inject
 
 @ServiceScoped
-class SavedAuthState @Inject constructor(@ApplicationContext context: Context) {
+class SavedAuthState @Inject constructor(
+    @ApplicationContext context: Context,
+    private val gson: Gson
+) {
+    // TODO: 7/4/2021 Make UserInfo also include the user's id
     companion object {
         private const val TAG = "MA_SavedAuthState"
 
@@ -29,7 +36,7 @@ class SavedAuthState @Inject constructor(@ApplicationContext context: Context) {
             sharedPreferences.edit()
                 .putString(KEY_STATE_JSON, value?.jsonSerializeString())
                 .apply()
-            if (!isAuthorized){
+            if (!isAuthorized) {
                 userInfo = null
             }
         }
@@ -41,9 +48,15 @@ class SavedAuthState @Inject constructor(@ApplicationContext context: Context) {
         set(value) {
             field = value
             sharedPreferences.edit()
-                .putString(KEY_USER_INFO, value?.username)
+                .putString(KEY_USER_INFO, value?.let { gson.toJson(it) })
                 .apply()
         }
+
+    fun currentUiAuthState(): WebManager.UiOAuthState {
+        return userInfo?.let {
+            WebManager.UiOAuthState.Authorized(it)
+        } ?: WebManager.UiOAuthState.NotAuthorized()
+    }
 
 
     fun clear() {
@@ -65,9 +78,14 @@ class SavedAuthState @Inject constructor(@ApplicationContext context: Context) {
         }
     }
 
-    private fun loadUserInfo() : UserInfo?{
+    private fun loadUserInfo(): UserInfo? {
         return sharedPreferences.getString(KEY_USER_INFO, null)?.let {
-            UserInfo(it)
+            try {
+                gson.fromJson(it, UserInfo::class.java)
+            } catch (e: JsonParseException) {
+                Log.w(TAG, "error parsing userInfo json: \n$it")
+                null
+            }
         }
     }
 }
