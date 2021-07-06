@@ -71,7 +71,7 @@ class BluetoothConnection(
 
         while (true) {
 
-            yield() // todo: does this actually handle the flow being cancelled
+            yield()
 
             @ServerToClientAction val actionCode = inputStream.read()
 

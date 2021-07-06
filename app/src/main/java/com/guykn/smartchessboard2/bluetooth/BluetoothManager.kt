@@ -21,6 +21,7 @@ class BluetoothManager @Inject constructor(
 
     companion object {
         const val TAG = "MA_BluetoothManager"
+        const val NUM_CONNECTION_ATTEMPTS = 3
     }
 
 
@@ -30,6 +31,7 @@ class BluetoothManager @Inject constructor(
 
     private var bluetoothConnection: BluetoothConnection? = null
     private var bluetoothConnectionJob: Job? = null
+
 
     fun setTargetDevice(bluetoothDevice: BluetoothDevice?) {
         Log.d(TAG, "Setting target device: ${bluetoothDevice?.name}")
@@ -47,8 +49,7 @@ class BluetoothManager @Inject constructor(
 
     private suspend fun connectLoop(bluetoothDevice: BluetoothDevice) =
         withContext(Dispatchers.Main.immediate) {
-            // TODO: 6/30/2021 This might waste a lot of hardware resources, since it continuously scans for bluetooth device. Stop and wait for the user to choose to retry.
-            while(true) {
+            repeat(NUM_CONNECTION_ATTEMPTS) {
                 Log.d(TAG, "Connecting to device: ${bluetoothDevice.name}")
                 try {
                     yield()
