@@ -34,8 +34,7 @@ class NullableTypAdapterFactory : TypeAdapterFactory {
                     // Ensure none of its non-nullable fields were deserialized to null
                     kotlinClass.memberProperties.forEach {
                         if (!it.returnType.isMarkedNullable && it.get(value) == null) {
-                            // todo: maybe replace with an exception that extends IOException
-                            throw MalformedJsonException("Value of non-nullable member [${it.name}] cannot be null")
+                            throw JsonParseException("Value of non-nullable member [${it.name}] cannot be null")
                         }
                     }
                 }

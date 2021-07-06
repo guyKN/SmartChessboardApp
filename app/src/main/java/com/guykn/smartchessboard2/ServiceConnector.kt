@@ -17,7 +17,6 @@ import javax.inject.Inject
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
-// TODO: 6/28/2021  
 
 @ActivityRetainedScoped
 class ServiceConnector @Inject constructor(@ApplicationContext private val context: Context) {
@@ -44,6 +43,7 @@ class ServiceConnector @Inject constructor(@ApplicationContext private val conte
             mainService = null
             if (!isDestroyed) {
                 Log.w(TAG, "Service stopped unexpectedly")
+                // todo: does this actually work? See if unexpected service disconnects are possible, and handle them properly.
                 startAndBindService()
             }
         }
@@ -53,8 +53,6 @@ class ServiceConnector @Inject constructor(@ApplicationContext private val conte
     private val mainServiceConnection = MainServiceConnection()
     private val serviceConnectedCallbacks = arrayListOf<((Repository) -> Unit)>()
 
-    // TODO: 5/6/2021 make sure that nothing wierd happens with this value already being false,
-    //  since hilt does not create new instances of components
     private var isDestroyed = false
 
 
@@ -69,7 +67,7 @@ class ServiceConnector @Inject constructor(@ApplicationContext private val conte
         val success = context.bindService(
             intent,
             mainServiceConnection,
-            Context.BIND_AUTO_CREATE or Context.BIND_ABOVE_CLIENT // todo: figoure out correct flags
+            Context.BIND_AUTO_CREATE or Context.BIND_ABOVE_CLIENT
         )
         if (!success) {
             throw RuntimeException("Failed to connect to service")
@@ -109,7 +107,7 @@ class ServiceConnector @Inject constructor(@ApplicationContext private val conte
 
     // TODO: 6/28/2021 Check if this causes memory leaks.
     /**
-     * Utility function that takes a stateFlow scoped in a repository and provides liveData that
+     * Utility function that takes a flow scoped in a repository and provides liveData that
      * has the same value as the return value stateFlowProvider if the service is active, or null if it is not active.
      */
     fun <T> copyLiveData(stateFlowProvider: (Repository) -> Flow<T>): LiveData<T> = liveData {

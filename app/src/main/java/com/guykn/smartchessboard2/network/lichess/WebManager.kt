@@ -22,8 +22,6 @@ import ru.gildor.coroutines.okhttp.await
 import java.io.IOException
 import javax.inject.Inject
 
-// TODO: 6/26/2021 Store lichess User id in addition to username, and use it.
-
 @ServiceScoped
 class WebManager @Inject constructor(
     @ApplicationContext context: Context,

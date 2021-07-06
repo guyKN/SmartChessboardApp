@@ -18,8 +18,6 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallback {
 
-    // TODO: 5/6/2021 Test how and when hilt creates identical dependencies
-
     @Inject
     lateinit var companionDeviceConnector: CompanionDeviceConnector
 

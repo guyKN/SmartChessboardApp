@@ -48,7 +48,6 @@ class MainService : LifecycleService() {
 
         val startActivityIntent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(this, 0, startActivityIntent, 0)
-        // TODO: 5/5/2021 add notification Icon
         val notification: Notification = Notification.Builder(this, NOTIFICATION_CHANNEL_ID)
             .setContentTitle("Connected via Bluetooth") // todo: change text based on connection
             .setContentText("Tap for more info")

@@ -81,7 +81,6 @@ class Repository @Inject constructor(
         coroutineScope.launch {
             var prevJob: Job? = null
             var prevGameId: String? = null
-            // todo: replace with zip
             chessBoardModel.boardState.combine(isBroadcastActive) { boardState, isActive ->
                 Pair(boardState, isActive)
             }.collect { (boardState, isActive) ->
