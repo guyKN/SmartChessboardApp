@@ -129,6 +129,7 @@ class OAuthFragment : Fragment() {
 
         lichessViewModel.broadcastRound.observe(viewLifecycleOwner) { broadcastEvent ->
             if (broadcastEvent?.value != null && broadcastEvent.receive()) {
+                // todo: when a new broadcast starts, if the user is observing it, then close the old broadcast tab and open the new broadcast tab
                 openCustomChromeTab(requireContext(), broadcastEvent.value.url)
             }
         }
@@ -212,5 +213,4 @@ class OAuthFragment : Fragment() {
             oAuthViewModel.onAuthorizationError()
         }
     }
-
 }

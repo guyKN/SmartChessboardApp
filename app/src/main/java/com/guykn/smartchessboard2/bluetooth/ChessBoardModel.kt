@@ -61,7 +61,6 @@ class ChessBoardModel @Inject constructor(val gson: Gson) {
     private val _numGamesToUpload = MutableStateFlow<Int?>(null)
     val numGamesToUpload = _numGamesToUpload as StateFlow<Int?>
 
-
     private val _gameInfo = MutableStateFlow<GameInfo?>(null)
     val gameInfo = _gameInfo as StateFlow<GameInfo?>
 

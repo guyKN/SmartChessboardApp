@@ -71,6 +71,8 @@ class BluetoothManager @Inject constructor(
                         }
                     }
                 } catch (e: IOException) {
+                    yield()
+                    chessBoardModel.setBluetoothState(DISCONNECTED)
                     Log.w(
                         TAG,
                         "Exception occurred while connecting or connected to bluetooth: ${e.message}"
@@ -87,7 +89,6 @@ class BluetoothManager @Inject constructor(
     suspend fun writeMessage(message: ClientToServerMessage) {
         bluetoothConnection?.write(message)
             ?: throw IOException("tried to write message while not connected via bluetooth. ")
-
     }
 
 

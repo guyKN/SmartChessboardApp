@@ -1,0 +1,32 @@
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <Preference
+        app:key="sign_in_info"/>
+    <Preference
+        app:key="play_against_ai"
+        app:title="Play Against Computer"/>
+    <Preference
+        app:key="play_online"
+        app:title="Play Online"/>
+    <Preference
+        app:key="start_broadcast"
+        app:title="Broadcast Game Live to Lichess"/>
+    <Preference
+        app:key="upload_games"
+        app:title="Upload Saved Games to Lichess"/>
+
+    <SwitchPreferenceCompat
+        app:key="learning_mode"
+        app:title="Learning Mode"
+        app:summary="Show all legal moves when picking up a piece"/>
+
+    <Preference
+        app:key="test_connection"
+        app:title="Test Bluetooth Connection"
+        app:summary="LEDs on the chessboard will blink on click"/>
+
+
+
+
+
+</PreferenceScreen>

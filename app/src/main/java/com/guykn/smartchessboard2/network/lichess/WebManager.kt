@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.JsonParseException
+import com.guykn.smartchessboard2.ErrorEventBus
 import com.guykn.smartchessboard2.network.lichess.LichessApi.UserInfo
 import com.guykn.smartchessboard2.network.lines
 import com.guykn.smartchessboard2.network.oauth2.*
@@ -28,7 +29,8 @@ class WebManager @Inject constructor(
     private val savedAuthState: SavedAuthState,
     private val lichessApi: LichessApi,
     private val okHttpClient: OkHttpClient,
-    private val gson: Gson
+    private val gson: Gson,
+    private val errorEventBus: ErrorEventBus
 ) {
     companion object {
         private const val TAG = "MA_WebManager"
@@ -75,8 +77,7 @@ class WebManager @Inject constructor(
                     }
                 }
                 // NotSignedInException and TooManyRequestsException don't mean that the internet isn't working, so we don't have to set isInternetWorking to False
-                is NotSignedInException, is TooManyRequestsException -> {
-                }
+                is NotSignedInException, is TooManyRequestsException -> { }
                 is IOException -> {
                     _internetState.value = InternetState.NotConnected
                 }
@@ -137,7 +138,7 @@ class WebManager @Inject constructor(
         }
     }
 
-    @Throws(AuthorizationException::class, NotSignedInException::class)
+    @Throws(AuthorizationException::class, NotSignedInException::class, IOException::class, GenericNetworkException::class)
     suspend fun createBroadcastTournament(
         name: String = "Test",
         description: String = "Test"
@@ -168,7 +169,6 @@ class WebManager @Inject constructor(
         val authorization: String = formatAuthHeader(getFreshToken())
         val response: Response<LichessApi.BroadcastRound> =
             lichessApi.createBroadcastRound(authorization, broadcastTournament.id, name)
-
         when (response.code()) {
             200 -> {
                 return response.body()
@@ -182,7 +182,6 @@ class WebManager @Inject constructor(
             429 -> on429httpStatus()
             else -> throw GenericNetworkException("Error creating broadcast round: Received http error code: ${response.code()}. ")
         }
-
     }
 
 

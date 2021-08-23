@@ -64,7 +64,6 @@ class LichessViewModel @Inject constructor(private val serviceConnector: Service
         }
     }
 
-
     fun stopGame() {
         viewModelScope.launch {
             val repository = serviceConnector.awaitConnected()
