@@ -14,14 +14,11 @@ import com.guykn.smartchessboard2.network.oauth2.NotSignedInException
 import com.guykn.smartchessboard2.network.oauth2.TooManyRequestsException
 import com.guykn.smartchessboard2.ui.util.EventWithValue
 import dagger.hilt.android.scopes.ServiceScoped
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.launch
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationResponse
 import java.io.IOException
@@ -75,6 +72,8 @@ class Repository @Inject constructor(
     private var lichessGameJob: Job? = null
 
     val uiOAuthState: StateFlow<WebManager.UiOAuthState> = webManager.uiAuthState
+
+
 
     init {
         // Whether a move is made on the physical chessboard, update the lichess broadcast.
@@ -241,6 +240,7 @@ class Repository @Inject constructor(
             }
         }
     }
+
 
     suspend fun signIn(
         response: AuthorizationResponse?,

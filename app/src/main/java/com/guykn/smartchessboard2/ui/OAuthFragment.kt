@@ -1,8 +1,6 @@
 package com.guykn.smartchessboard2.ui
 
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -20,9 +18,9 @@ import androidx.fragment.app.activityViewModels
 import com.guykn.smartchessboard2.bluetooth.ChessBoardSettings
 import com.guykn.smartchessboard2.bluetooth.GameStartRequest
 import com.guykn.smartchessboard2.R
-import com.guykn.smartchessboard2.network.lichess.WebManager
 import com.guykn.smartchessboard2.network.lichess.WebManager.UiOAuthState
 import com.guykn.smartchessboard2.network.oauth2.getLichessAuthIntent
+import com.guykn.smartchessboard2.openCustomChromeTab
 import dagger.hilt.android.AndroidEntryPoint
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationResponse
@@ -131,13 +129,13 @@ class OAuthFragment : Fragment() {
 
         lichessViewModel.broadcastRound.observe(viewLifecycleOwner) { broadcastEvent ->
             if (broadcastEvent?.value != null && broadcastEvent.receive()) {
-                openWebBrowser(broadcastEvent.value.url)
+                openCustomChromeTab(requireContext(), broadcastEvent.value.url)
             }
         }
 
         lichessViewModel.activeGame.observe(viewLifecycleOwner) { gameEvent ->
             if (gameEvent?.value != null && gameEvent.receive()) {
-                openWebBrowser(gameEvent.value.url)
+                openCustomChromeTab(requireContext(), gameEvent.value.url)
             }
         }
 
@@ -215,10 +213,4 @@ class OAuthFragment : Fragment() {
         }
     }
 
-    private fun openWebBrowser(url: String) {
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            data = Uri.parse(url)
-        }
-        startActivity(intent)
-    }
 }
