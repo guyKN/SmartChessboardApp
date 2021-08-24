@@ -11,6 +11,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.commit
 import com.guykn.smartchessboard2.R
 import com.guykn.smartchessboard2.bluetooth.companiondevice.CompanionDeviceConnector
+import com.guykn.smartchessboard2.newui.MainFragment
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -48,7 +49,7 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
         if (savedInstanceState == null) {
             supportFragmentManager.commit {
                 setReorderingAllowed(true)
-                add(R.id.container, OAuthFragment())
+                add(R.id.container, MainFragment())
             }
         }
     }

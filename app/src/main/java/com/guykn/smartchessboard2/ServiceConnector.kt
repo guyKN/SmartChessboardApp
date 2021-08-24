@@ -83,7 +83,8 @@ class ServiceConnector @Inject constructor(@ApplicationContext private val conte
         mainService = null
         val intent = Intent(context, MainService::class.java)
         context.unbindService(mainServiceConnection)
-        context.stopService(intent)
+        // context.stopService() is not needed because MainService destroys itself when onTaskRemoved() is called
+//        context.stopService(intent)
     }
 
 

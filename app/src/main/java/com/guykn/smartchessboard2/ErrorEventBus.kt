@@ -13,6 +13,8 @@ class ErrorEventBus @Inject constructor() {
         class NoLongerAuthorizedError: ErrorEvent()
         class WriteSettingsError: ErrorEvent()
         class StartOfflineGameError: ErrorEvent()
+        class UploadPgnError: ErrorEvent()
+        class BlinkLedsError: ErrorEvent()
     }
 
     val errorEvents: MutableStateFlow<ErrorEvent?> = MutableStateFlow(null)

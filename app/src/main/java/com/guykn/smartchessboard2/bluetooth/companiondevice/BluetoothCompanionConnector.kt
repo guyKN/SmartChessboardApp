@@ -37,7 +37,25 @@ class CompanionDeviceConnector @Inject constructor(
     }
 
     companion object {
-        const val TAG = "ChessApp_CompanionConn"
+        const val TAG = "MA_CompanionConn"
+
+        fun shouldRequestEnableBluetooth(): Boolean {
+            return when(BluetoothAdapter.getDefaultAdapter().state){
+                BluetoothAdapter.STATE_ON, BluetoothAdapter.STATE_TURNING_ON->false
+                else->true
+            }
+        }
+
+        fun nameForBluetoothState(state: Int): String {
+            return when (state) {
+                BluetoothAdapter.STATE_OFF -> "OFF"
+                BluetoothAdapter.STATE_TURNING_ON -> "TURNING_ON"
+                BluetoothAdapter.STATE_ON -> "ON"
+                BluetoothAdapter.STATE_TURNING_OFF -> "TURNING_OFF"
+                else -> "?!?!? ($state)"
+            }
+        }
+
     }
 
     private val companionDeviceManager: CompanionDeviceManager = context.getSystemService(
@@ -75,7 +93,9 @@ class CompanionDeviceConnector @Inject constructor(
             if (BluetoothAdapter.ACTION_STATE_CHANGED == action) {
                 val connectionState =
                     intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.STATE_OFF)
+                Log.d(TAG, "Current bluetooth state on bluetooth adapter: ${nameForBluetoothState(connectionState)}")
                 refreshBluetoothDevice()
+
             } else if (BluetoothDevice.ACTION_BOND_STATE_CHANGED == action) {
                 val bluetoothDevice =
                     intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
@@ -169,6 +189,7 @@ class CompanionDeviceConnector @Inject constructor(
             bluetoothStateCallback.onBluetoothStateChanged(ChessBoardModel.BluetoothState.SCAN_FAILED)
         }
     }
+
 
     private fun pairedChessboardDevice(): BluetoothDevice? {
         return bluetoothAdapter?.let {

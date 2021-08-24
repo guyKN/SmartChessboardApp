@@ -123,14 +123,14 @@ class Repository @Inject constructor(
                                             TAG,
                                             "Error pushing pgn to broadcast: ${e.message}"
                                         )
-                                        errorEventBus.errorEvents.value =
-                                            ErrorEvent.OtherErrorPushingToBroadcast()
+//                                        errorEventBus.errorEvents.value =
+//                                            ErrorEvent.OtherErrorPushingToBroadcast()
 
                                         break
                                     }
                                     is TooManyRequestsException -> {
-                                        errorEventBus.errorEvents.value =
-                                            ErrorEvent.TooManyRequests()
+//                                        errorEventBus.errorEvents.value =
+//                                            ErrorEvent.TooManyRequests()
                                         break
                                     }
                                     is IOException -> {
@@ -259,6 +259,20 @@ class Repository @Inject constructor(
         exception: AuthorizationException?
     ): LichessApi.UserInfo = webManager.signIn(response, exception)
 
+    fun signOut() {
+        webManager.signOut()
+    }
+
+
+    fun startBroadcast() {
+        isBroadcastActive.value = true
+    }
+
+    fun stopBroadcast() {
+        _broadcastRound.value = BroadcastEvent(null)
+        isBroadcastActive.value = false
+    }
+
     private suspend fun getFreshBroadcastTournament(): LichessApi.BroadcastTournament {
         return savedBroadcastTournament.broadcastTournament
             ?: webManager.createBroadcastTournament().also {
@@ -286,15 +300,6 @@ class Repository @Inject constructor(
         bluetoothManager.writeMessage(clientToServerMessageProvider.startNormalGame(gameStartRequest))
     }
 
-    fun startBroadcast() {
-        isBroadcastActive.value = true
-    }
-
-    fun stopBroadcast() {
-        _broadcastRound.value = BroadcastEvent(null)
-        isBroadcastActive.value = false
-    }
-
     fun startOnlineGame() {
         if (isOnlineGameActive.get()) {
             Log.w(TAG, "tried to stream game while game was already active.")
@@ -311,6 +316,7 @@ class Repository @Inject constructor(
                         webManager.awaitGameStart()?.let { game ->
                             _activeGame.value = LichessGameEvent(game)
                             webManager.gameStream(game).collect { gameState ->
+                                yield()
                                 _lichessGameState.value = gameState
                             }
                             // if the flow completes without throwing an exception, then the game has ended and we should stop observing.
@@ -369,10 +375,6 @@ class Repository @Inject constructor(
         lichessGameJob?.cancel()
     }
 
-    fun signOut() {
-        webManager.signOut()
-    }
-
     fun setTargetBluetoothDevice(bluetoothDevice: BluetoothDevice?) {
         bluetoothManager.setTargetDevice(bluetoothDevice)
     }
@@ -387,6 +389,10 @@ class Repository @Inject constructor(
             _pgnFilesUploadState.value = PgnFileUploadState.NotUploading
             throw e
         }
+    }
+
+    suspend fun blinkLeds(){
+        bluetoothManager.writeMessage(clientToServerMessageProvider.testLeds())
     }
 
     override fun onPgnFilesSent(messageData: String) {

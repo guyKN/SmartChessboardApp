@@ -73,4 +73,10 @@ class MainService : LifecycleService() {
         super.onDestroy()
         repository.destroy()
     }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        Log.d(TAG, "onTaskRemoved called on MainService")
+        stopSelf()
+    }
 }

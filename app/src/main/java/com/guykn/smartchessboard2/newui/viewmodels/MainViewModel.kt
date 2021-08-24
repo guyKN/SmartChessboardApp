@@ -17,19 +17,14 @@ import net.openid.appauth.AuthorizationResponse
 import java.io.IOException
 import javax.inject.Inject
 
+// todo: move all error handlig logic to the repository
+
 @HiltViewModel
 class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) : ViewModel() {
-
-    val isServiceConnected: LiveData<Boolean> = liveData {
-        emit(false)
-        serviceConnector.awaitConnected()
-        emit(true)
-    }
 
     val errorEvents: LiveData<ErrorEvent?> =
         serviceConnector.copyLiveData { repository -> repository.errorEventBus.errorEvents }
 
-    ///////////////////////////////////////////////////////////////////////////////////////////////
     val bluetoothState: LiveData<ChessBoardModel.BluetoothState> =
         serviceConnector.copyLiveData { repository -> repository.chessBoardModel.bluetoothState }
 
@@ -48,8 +43,6 @@ class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) 
     val chessBoardSettings: LiveData<ChessBoardSettings?> =
         serviceConnector.copyLiveData { repository -> repository.chessBoardModel.settings }
 
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-
     val broadcastRound: LiveData<BroadcastEvent?> =
         serviceConnector.copyLiveData { repository -> repository.broadcastRound }
 
@@ -67,7 +60,14 @@ class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) 
 
     val isLoadingBroadcast: LiveData<Boolean> =
         serviceConnector.copyLiveData { repository -> repository.isLoadingBroadcast }
+
     ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    val isServiceConnected: LiveData<Boolean> = liveData {
+        emit(false)
+        serviceConnector.awaitConnected()
+        emit(true)
+    }
 
     private val _isWritingSettings = MutableLiveData<Boolean>(false)
     val isWritingSettings: LiveData<Boolean> = _isWritingSettings
@@ -76,6 +76,7 @@ class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) 
     val isStartingOfflineGame: LiveData<Boolean> = _isStartingOfflineGame
 
     private val _isLoading: MediatorLiveData<Boolean> = MediatorLiveData()
+    val isLoading: LiveData<Boolean> = _isLoading
     init {
         _isLoading.addSource(isServiceConnected){ updateIsLoading() }
         _isLoading.addSource(bluetoothState){ updateIsLoading() }
@@ -129,14 +130,25 @@ class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) 
         }
     }
 
+    fun signOut(){
+        viewModelScope.launch {
+            val repository = serviceConnector.awaitConnected()
+            repository.signOut()
+        }
+
+    }
+
     fun writeSettings(settings: ChessBoardSettings) {
         viewModelScope.launch {
             val repository = serviceConnector.awaitConnected()
             try {
+                _isWritingSettings.value = true
                 repository.writeSettings(settings)
             } catch (e: IOException) {
                 postErrorEvent(ErrorEvent.WriteSettingsError())
                 e.printStackTrace()
+            }finally {
+                _isWritingSettings.value = false
             }
         }
     }
@@ -145,10 +157,13 @@ class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) 
         viewModelScope.launch {
             val repository = serviceConnector.awaitConnected()
             try {
+                _isStartingOfflineGame.value = true
                 repository.startOfflineGame(gameStartRequest)
             } catch (e: IOException) {
                 postErrorEvent(ErrorEvent.StartOfflineGameError())
                 e.printStackTrace()
+            }finally {
+                _isStartingOfflineGame.value = false
             }
         }
     }
@@ -179,5 +194,32 @@ class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) 
             val repository = serviceConnector.awaitConnected()
             repository.stopOnlineGame()
         }
+    }
+
+    fun uploadPgn() {
+        viewModelScope.launch {
+            val repository = serviceConnector.awaitConnected()
+            try {
+                repository.uploadPgn()
+            }catch (e:IOException){
+                postErrorEvent(ErrorEvent.UploadPgnError())
+            }
+        }
+    }
+
+    fun blinkLeds() {
+        viewModelScope.launch {
+            val repository = serviceConnector.awaitConnected()
+            try {
+                repository.blinkLeds()
+            }catch (e:IOException){
+                postErrorEvent(ErrorEvent.BlinkLedsError())
+            }
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        serviceConnector.destroy()
     }
 }

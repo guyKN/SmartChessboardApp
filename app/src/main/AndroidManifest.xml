@@ -24,6 +24,7 @@
             android:name=".MainService"
             android:enabled="true"
             android:exported="false"
+            android:stopWithTask="false"
             android:description="@string/service_description"/>
 
         <activity android:name=".ui.MainActivity">

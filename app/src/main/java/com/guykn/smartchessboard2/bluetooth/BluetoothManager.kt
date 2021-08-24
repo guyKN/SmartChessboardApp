@@ -1,16 +1,18 @@
 package com.guykn.smartchessboard2.bluetooth
 
+import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.util.Log
 import com.guykn.smartchessboard2.bluetooth.BluetoothConstants.ServerToClientActions
 import com.guykn.smartchessboard2.bluetooth.ChessBoardModel.*
 import com.guykn.smartchessboard2.bluetooth.ChessBoardModel.BluetoothState.*
-import dagger.Lazy
 import dagger.hilt.android.scopes.ServiceScoped
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collect
 import java.io.IOException
 import javax.inject.Inject
+
+// todo: try automatically reconnect if bluetooth disconnects
 
 @ServiceScoped
 class BluetoothManager @Inject constructor(
@@ -49,39 +51,40 @@ class BluetoothManager @Inject constructor(
 
     private suspend fun connectLoop(bluetoothDevice: BluetoothDevice) =
         withContext(Dispatchers.Main.immediate) {
-            repeat(NUM_CONNECTION_ATTEMPTS) {
-                Log.d(TAG, "Connecting to device: ${bluetoothDevice.name}")
-                try {
+            Log.d(TAG, "Connecting to device: ${bluetoothDevice.name}")
+            try {
+                yield()
+                BluetoothConnection(bluetoothDevice).use { bluetoothConnection ->
+                    this@BluetoothManager.bluetoothConnection = bluetoothConnection
+                    chessBoardModel.setBluetoothState(CONNECTING)
+                    bluetoothConnection.connect()
                     yield()
-                    BluetoothConnection(bluetoothDevice).use { bluetoothConnector ->
-                        this@BluetoothManager.bluetoothConnection = bluetoothConnector
-                        chessBoardModel.setBluetoothState(CONNECTING)
-                        bluetoothConnector.connect()
-                        yield()
-                        chessBoardModel.setBluetoothState(CONNECTED)
-                        bluetoothConnector.serverMessageFlow.collect { message ->
-                            when(message.action){
-                                ServerToClientActions.STATE_CHANGED ->{
-                                    chessBoardModel.update(message.data)
-                                }
-                                ServerToClientActions.RET_PGN_FILES -> {
-                                    pgnFilesCallback.get().onPgnFilesSent(message.data)
-                                }
+                    chessBoardModel.setBluetoothState(CONNECTED)
+                    bluetoothConnection.serverMessageFlow.collect { message ->
+                        when (message.action) {
+                            ServerToClientActions.STATE_CHANGED -> {
+                                chessBoardModel.update(message.data)
+                            }
+                            ServerToClientActions.RET_PGN_FILES -> {
+                                pgnFilesCallback.get().onPgnFilesSent(message.data)
                             }
                         }
                     }
-                } catch (e: IOException) {
-                    yield()
-                    chessBoardModel.setBluetoothState(DISCONNECTED)
-                    Log.w(
-                        TAG,
-                        "Exception occurred while connecting or connected to bluetooth: ${e.message}"
-                    )
-                    delay(2500)
-                } finally {
-                    yield()
-                    chessBoardModel.setBluetoothState(DISCONNECTED)
                 }
+            } catch (e: IOException) {
+                Log.w(
+                    TAG,
+                    "Exception occurred while connecting or connected to bluetooth: ${e.message}"
+                )
+            } finally {
+                yield()
+                chessBoardModel.setBluetoothState(
+                    if (BluetoothAdapter.getDefaultAdapter()?.state == BluetoothAdapter.STATE_ON){
+                        DISCONNECTED
+                    }else {
+                        BLUETOOTH_NOT_ENABLED
+                    }
+                )
             }
         }
 

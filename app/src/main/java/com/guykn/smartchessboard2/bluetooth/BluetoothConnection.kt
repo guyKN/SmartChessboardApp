@@ -52,11 +52,14 @@ class BluetoothConnection(
 
     @Suppress("BlockingMethodInNonBlockingContext")
     suspend fun connect() = withContext(coroutineDispatcher) {
-        _isConnecting.set(true)
-        val bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()!!
-        bluetoothAdapter.cancelDiscovery()
-        bluetoothSocket.connect()
-        _isConnecting.set(false)
+        try {
+            _isConnecting.set(true)
+            val bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()!!
+            bluetoothAdapter.cancelDiscovery()
+            bluetoothSocket.connect()
+        } finally {
+            _isConnecting.set(false)
+        }
     }
 
     @Suppress("BlockingMethodInNonBlockingContext")
@@ -123,7 +126,7 @@ class BluetoothConnection(
     }
 
     private fun checkConnected() {
-        if (!isConnected){
+        if (!isConnected) {
             throw IOException("Must be connected before doing bluetooth IO.")
         }
     }
