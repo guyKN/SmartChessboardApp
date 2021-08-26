@@ -1,51 +1,53 @@
 package com.guykn.smartchessboard2.ui
 
+import android.annotation.SuppressLint
+import android.app.AlertDialog
 import android.app.Dialog
-import android.content.Context
 import android.os.Bundle
-import android.view.Window
-import android.widget.Button
 import android.widget.NumberPicker
+import androidx.fragment.app.DialogFragment
 import com.guykn.smartchessboard2.R
 import com.guykn.smartchessboard2.bluetooth.GameStartRequest
 
 class StartOfflineGameDialog(
-    context: Context,
     val gameStartRequestCallback: (GameStartRequest) -> Unit
-) : Dialog(context) {
+) : DialogFragment() {
 
     companion object {
         private const val WHITE = 0
         private const val BLACK = 1
     }
 
-    private lateinit var difficultySelector: NumberPicker
-    private lateinit var colorSelector: NumberPicker
-    private lateinit var startButton: Button
+    lateinit var difficultySelector: NumberPicker
+    lateinit var colorSelector: NumberPicker
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        requestWindowFeature(Window.FEATURE_NO_TITLE)
-        setContentView(R.layout.dialog_start_game)
-        difficultySelector = findViewById(R.id.ai_difficulty_selector)
-        colorSelector = findViewById(R.id.ai_color_selector)
-        startButton = findViewById(R.id.start_game)
+    @SuppressLint("InflateParams")
+    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
+        val inflater = requireActivity().layoutInflater
+        val view = inflater.inflate(R.layout.dialog_start_game, null)
 
-        difficultySelector.minValue = 1
-        difficultySelector.maxValue = 20
-        difficultySelector.value = 10
-        difficultySelector.wrapSelectorWheel = false
-
-        colorSelector.minValue = 0
-        colorSelector.maxValue = 1
-        colorSelector.value = 0
-        colorSelector.displayedValues = context.resources.getStringArray(R.array.player_color_names)
-        colorSelector.wrapSelectorWheel = true
-
-        startButton.setOnClickListener {
-            dismiss()
-            gameStartRequestCallback(currentGameStartRequest())
+        difficultySelector = view.findViewById<NumberPicker>(R.id.ai_difficulty_selector).apply{
+            minValue = 1
+            maxValue = 20
+            value = 10
+            wrapSelectorWheel = false
         }
+        colorSelector = view.findViewById<NumberPicker>(R.id.ai_color_selector).apply {
+            minValue = 0
+            maxValue = 1
+            value = 0
+            displayedValues = context.resources.getStringArray(R.array.player_color_names)
+            wrapSelectorWheel = true
+        }
+
+
+        return AlertDialog.Builder(requireActivity())
+            .setView(view)
+            .setTitle(R.string.title_play_against_computer)
+            .setPositiveButton(R.string.start_game) { _, _ ->
+                gameStartRequestCallback(currentGameStartRequest())
+            }
+            .create()
     }
 
     private fun currentGameStartRequest(): GameStartRequest {
@@ -57,6 +59,5 @@ class StartOfflineGameDialog(
             engineColor = if (colorSelector.value == WHITE) "black" else "white"
         )
     }
-
 
 }

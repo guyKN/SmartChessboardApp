@@ -146,8 +146,8 @@ class MainFragment : PreferenceFragmentCompat() {
         }
 
         playAgainstAiButton.setOnPreferenceClickListener {
-            StartOfflineGameDialog(requireContext(), mainViewModel::startOfflineGame)
-                .show()
+            StartOfflineGameDialog(mainViewModel::startOfflineGame)
+                .show(parentFragmentManager, "start_offline_game")
             true
         }
 

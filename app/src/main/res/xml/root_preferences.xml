@@ -4,28 +4,24 @@
         app:key="sign_in_info"/>
     <Preference
         app:key="play_against_ai"
-        app:title="Play Against Computer"/>
+        app:title="@string/menu_play_against_computer"/>
     <Preference
         app:key="play_online" />
     <Preference
         app:key="start_broadcast"
-        app:title="Broadcast Game"/>
+        app:title="@string/menu_broadcast_game"/>
     <Preference
         app:key="upload_games"
-        app:title="View Saved Games"/>
+        app:title="@string/menu_upload_games"/>
 
     <SwitchPreferenceCompat
         app:key="learning_mode"
-        app:title="Learning Mode"
-        app:summary="Show all legal moves when picking up a piece"/>
+        app:title="@string/menu_learning_mode"
+        app:summary="@string/menu_learning_mode_description"/>
 
     <Preference
         app:key="test_connection"
-        app:title="Test Bluetooth Connection"
-        app:summary="LEDs on the chessboard will blink"/>
-
-
-
-
+        app:title="Test Chessboard"
+        app:summary="@string/menu_test_leds_description"/>
 
 </PreferenceScreen>
