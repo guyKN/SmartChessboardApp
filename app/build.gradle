@@ -78,5 +78,8 @@ dependencies {
 
     implementation "androidx.lifecycle:lifecycle-service:2.2.0"
 
+    implementation 'io.github.ShawnLin013:number-picker:2.4.13'\
+
+    implementation "com.github.addisonelliott:SegmentedButton:3.1.9"
 
 }

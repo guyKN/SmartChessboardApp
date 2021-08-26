@@ -13,7 +13,7 @@
     <string name="computer_strength">Computer Strength:</string>
     <string name="play_as">Play As:</string>
     <string name="title_play_against_computer">Play against the computer</string>
-    <string name="menu_play_against_computer">Play against the computer</string>
+    <string name="menu_play_against_computer">Play Against the Computer</string>
 
     <string name="start_game">Start Game</string>
     <string name="menu_broadcast_game">Broadcast Game</string>
@@ -21,6 +21,7 @@
     <string name="menu_learning_mode">Learning Mode</string>
     <string name="menu_learning_mode_description">Show all legal moves when picking up a piece</string>
     <string name="menu_test_leds_description">LEDs will turn on whether there is a piece</string>
+    <string name="cancel">cancel</string>
 
     <string-array name="player_color_names">
         <item>White</item>

@@ -7,19 +7,23 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.commit
 import com.guykn.smartchessboard2.R
+import com.guykn.smartchessboard2.bluetooth.GameStartRequest
 import com.guykn.smartchessboard2.bluetooth.companiondevice.CompanionDeviceConnector
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
 
 @AndroidEntryPoint
-class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallback {
+class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallback, StartOfflineGameDialog.Callback {
 
     @Inject
     lateinit var companionDeviceConnector: CompanionDeviceConnector
+
+    private val mainViewModel: MainViewModel by viewModels()
 
     companion object {
         const val TAG = "MainActivity"
@@ -62,5 +66,9 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
         val intentSenderRequest: IntentSenderRequest =
             IntentSenderRequest.Builder(intentSender).build()
         bluetoothIntentLauncher.launch(intentSenderRequest)
+    }
+
+    override fun startOfflineGame(gameStartRequest: GameStartRequest) {
+        mainViewModel.startOfflineGame(gameStartRequest)
     }
 }
