@@ -10,6 +10,7 @@ import androidx.browser.customtabs.CustomTabsIntent
 import androidx.core.content.res.ResourcesCompat
 
 
+
 fun openCustomChromeTab(context: Context, url: String) {
     val backIconDrawable = ResourcesCompat.getDrawable(
         context.resources,

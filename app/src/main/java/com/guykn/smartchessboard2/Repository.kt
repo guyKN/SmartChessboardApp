@@ -22,6 +22,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.filterIsInstance
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationResponse
 import java.io.IOException
@@ -318,6 +319,10 @@ class Repository @Inject constructor(
 
 
     fun startBroadcast() {
+        if(chessBoardModel.gameInfo.value?.isOnlineGame() == true){
+            eventBus.errorEvents.value = ErrorEvent.BroadcastCreatedWhileOnlineGameActive()
+            return
+        }
         isBroadcastActive.value = true
     }
 

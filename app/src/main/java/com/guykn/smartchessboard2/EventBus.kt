@@ -18,6 +18,7 @@ class EventBus @Inject constructor() {
         class SignInError: ErrorEvent()
         class NoLongerAuthorizedError: ErrorEvent()
         class IllegalGameSelected: ErrorEvent() // when a user tries to use the chessboard in a game that isn't rapid or classic time control, or a game with a rules variant.
+        class BroadcastCreatedWhileOnlineGameActive: ErrorEvent()
 
         class BluetoothIOError: ErrorEvent()
         class InternetIOError: ErrorEvent()

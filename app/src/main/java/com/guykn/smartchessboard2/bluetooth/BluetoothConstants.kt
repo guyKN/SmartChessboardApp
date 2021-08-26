@@ -10,6 +10,7 @@ import javax.inject.Inject
 
 object BluetoothConstants {
     val CHESS_BOARD_UUID: UUID = UUID.fromString("6c08ff89-2218-449f-9590-66c704994db9")!!
+    val CHESS_BOARD_DEVICE_NAME = "Chess Board"
 
     // the number of bytes in the message head, which describes the number of bytes in the entire message
     const val MESSAGE_HEAD_LENGTH: Int = 4

@@ -80,6 +80,8 @@ interface LichessApi {
         val url get() = "$LICHESS_BASE_URL/$id"
     }
 
+    // todo: move all methods on lichess data structures to extensions methods placed somewhere else, in order to better seperate IO and business logic
+
     data class GameStreamLine(
         val type: String,
 

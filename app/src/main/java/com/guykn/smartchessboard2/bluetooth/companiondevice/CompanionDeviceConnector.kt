@@ -7,8 +7,11 @@ import android.companion.BluetoothDeviceFilter
 import android.companion.CompanionDeviceManager
 import android.content.*
 import android.os.Build
+import android.os.ParcelUuid
 import android.util.Log
 import androidx.annotation.RequiresApi
+import com.guykn.smartchessboard2.bluetooth.BluetoothConstants.CHESS_BOARD_DEVICE_NAME
+import com.guykn.smartchessboard2.bluetooth.BluetoothConstants.CHESS_BOARD_UUID
 import com.guykn.smartchessboard2.bluetooth.ChessBoardModel
 import dagger.hilt.android.qualifiers.ActivityContext
 import dagger.hilt.android.scopes.ActivityScoped
@@ -209,7 +212,9 @@ class CompanionDeviceConnector @Inject constructor(
             isScanning = true
             bluetoothStateCallback.onBluetoothStateChanged(ChessBoardModel.BluetoothState.SCANNING)
             val bluetoothDeviceFilter = BluetoothDeviceFilter.Builder()
-                .setNamePattern(Pattern.compile("Chess Board"))
+// searching using uuid like below doesn't seem to work, maybe because raspberry pi is not set up properly or because of a bug in android.
+//                .addServiceUuid(ParcelUuid(CHESS_BOARD_UUID), null)
+                .setNamePattern(Pattern.compile(CHESS_BOARD_DEVICE_NAME))
                 .build()
             val associationRequest = AssociationRequest.Builder()
                 .addDeviceFilter(bluetoothDeviceFilter)

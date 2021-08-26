@@ -34,7 +34,7 @@ import net.openid.appauth.AuthorizationService
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
-
+@SuppressWarnings("DEPRECATION")
 @AndroidEntryPoint
 class MainFragment : PreferenceFragmentCompat() {
 
@@ -476,6 +476,14 @@ class MainFragment : PreferenceFragmentCompat() {
                         .setPositiveButton("OK") { _, _ -> }
                         .show()
 
+                }
+                is ErrorEvent.BroadcastCreatedWhileOnlineGameActive -> {
+                    Snackbar.make(
+                        view,
+                        "Can't create broadcast for an online game. ",
+                        Snackbar.LENGTH_SHORT
+                    )
+                        .show()
                 }
             }
         }

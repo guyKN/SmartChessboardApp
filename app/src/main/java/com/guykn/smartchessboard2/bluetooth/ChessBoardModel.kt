@@ -28,7 +28,12 @@ class ChessBoardModel @Inject constructor(val gson: Gson) {
         val engineLevel: String,
         val white: String,
         val black: String
-    )
+    ){
+        fun isOnlineGame(): Boolean{
+            // a player being named "bluetooth" means that they are controlled by an external bluetooth source (this device), which means it's an online game.
+            return white == "bluetooth" || black == "bluetooth"
+        }
+    }
 
     data class BoardState(
         val fen: String,
@@ -98,6 +103,5 @@ class ChessBoardModel @Inject constructor(val gson: Gson) {
         } catch (e: JsonParseException) {
             Log.w(TAG, "Failed to parse json:\n${e.message}\n$messageData")
         }
-
     }
 }
