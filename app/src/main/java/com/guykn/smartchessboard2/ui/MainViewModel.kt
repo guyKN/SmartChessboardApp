@@ -1,4 +1,4 @@
-package com.guykn.smartchessboard2.newui
+package com.guykn.smartchessboard2.ui
 
 import androidx.lifecycle.*
 import com.guykn.smartchessboard2.BroadcastEvent

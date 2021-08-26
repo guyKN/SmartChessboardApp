@@ -16,7 +16,7 @@ import com.guykn.smartchessboard2.network.oauth2.GenericNetworkException
 import com.guykn.smartchessboard2.network.oauth2.NetworkException
 import com.guykn.smartchessboard2.network.oauth2.NotSignedInException
 import com.guykn.smartchessboard2.network.oauth2.TooManyRequestsException
-import com.guykn.smartchessboard2.newui.util.EventWithValue
+import com.guykn.smartchessboard2.ui.util.EventWithValue
 import dagger.hilt.android.scopes.ServiceScoped
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow

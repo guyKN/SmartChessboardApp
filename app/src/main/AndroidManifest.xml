@@ -27,7 +27,7 @@
             android:stopWithTask="false"
             android:description="@string/service_description"/>
 
-        <activity android:name=".newui.MainActivity">
+        <activity android:name=".ui.MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

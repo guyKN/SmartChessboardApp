@@ -1,4 +1,4 @@
-package com.guykn.smartchessboard2.newui.util
+package com.guykn.smartchessboard2.ui.util
 
 open class Event {
     private var recieved = false

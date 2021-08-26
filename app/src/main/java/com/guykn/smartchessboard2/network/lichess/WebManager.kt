@@ -7,8 +7,8 @@ import com.google.gson.JsonParseException
 import com.guykn.smartchessboard2.network.lichess.LichessApi.UserInfo
 import com.guykn.smartchessboard2.network.lines
 import com.guykn.smartchessboard2.network.oauth2.*
-import com.guykn.smartchessboard2.newui.util.Event
-import com.guykn.smartchessboard2.newui.util.EventWithValue
+import com.guykn.smartchessboard2.ui.util.Event
+import com.guykn.smartchessboard2.ui.util.EventWithValue
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.scopes.ServiceScoped
 import kotlinx.coroutines.*

@@ -2,7 +2,7 @@ package com.guykn.smartchessboard2
 
 import com.guykn.smartchessboard2.bluetooth.ChessBoardSettings
 import com.guykn.smartchessboard2.network.lichess.LichessApi
-import com.guykn.smartchessboard2.newui.util.Event
+import com.guykn.smartchessboard2.ui.util.Event
 import dagger.hilt.android.scopes.ServiceScoped
 import kotlinx.coroutines.flow.MutableStateFlow
 import javax.inject.Inject
