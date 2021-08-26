@@ -6,8 +6,7 @@ import android.os.Binder
 import android.os.IBinder
 import android.util.Log
 import androidx.lifecycle.LifecycleService
-import com.guykn.smartchessboard2.network.lichess.WebManager
-import com.guykn.smartchessboard2.ui.MainActivity
+import com.guykn.smartchessboard2.newui.MainActivity
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -61,7 +60,7 @@ class MainService : LifecycleService() {
         val channel = NotificationChannel(
             NOTIFICATION_CHANNEL_ID,
             "Notifications",
-            NotificationManager.IMPORTANCE_DEFAULT
+            NotificationManager.IMPORTANCE_LOW
         )
         channel.description = "Notifications"
         channel.setShowBadge(false)

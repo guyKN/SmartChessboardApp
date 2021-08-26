@@ -28,11 +28,7 @@ class GenericNetworkException : NetworkException {
     constructor(cause: Throwable) : super(cause)
 }
 
-class TooManyRequestsException : NetworkException {
-    constructor() : super()
-    constructor(message: String) : super(message)
-    constructor(cause: Throwable) : super(cause)
-}
+class TooManyRequestsException(val timeForValidRequests: Long) : NetworkException("Lichess API is overloaded, please try again later. ")
 
 fun AuthorizationService.getLichessAuthIntent(): Intent {
     val authRequest = AuthorizationRequest.Builder(

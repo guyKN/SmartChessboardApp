@@ -1,29 +1,32 @@
-package com.guykn.smartchessboard2.newui.viewmodels
+package com.guykn.smartchessboard2.newui
 
-import android.provider.MediaStore
 import androidx.lifecycle.*
-import com.google.gson.JsonParseException
-import com.guykn.smartchessboard2.*
-import com.guykn.smartchessboard2.ErrorEventBus.ErrorEvent
+import com.guykn.smartchessboard2.BroadcastEvent
+import com.guykn.smartchessboard2.EventBus.ErrorEvent
+import com.guykn.smartchessboard2.EventBus.SuccessEvent
+import com.guykn.smartchessboard2.LichessGameEvent
+import com.guykn.smartchessboard2.Repository
+import com.guykn.smartchessboard2.ServiceConnector
 import com.guykn.smartchessboard2.bluetooth.ChessBoardModel
 import com.guykn.smartchessboard2.bluetooth.ChessBoardSettings
 import com.guykn.smartchessboard2.bluetooth.GameStartRequest
+import com.guykn.smartchessboard2.network.lichess.BoolEvent
 import com.guykn.smartchessboard2.network.lichess.WebManager
-import com.guykn.smartchessboard2.network.oauth2.NetworkException
+import com.guykn.smartchessboard2.network.lichess.WebManager.UiOAuthState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationResponse
-import java.io.IOException
 import javax.inject.Inject
-
-// todo: move all error handlig logic to the repository
 
 @HiltViewModel
 class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) : ViewModel() {
 
     val errorEvents: LiveData<ErrorEvent?> =
-        serviceConnector.copyLiveData { repository -> repository.errorEventBus.errorEvents }
+        serviceConnector.copyLiveData { repository -> repository.eventBus.errorEvents }
+
+    val successEvents: LiveData<SuccessEvent?> =
+        serviceConnector.copyLiveData { repository -> repository.eventBus.successEvents }
 
     val bluetoothState: LiveData<ChessBoardModel.BluetoothState> =
         serviceConnector.copyLiveData { repository -> repository.chessBoardModel.bluetoothState }
@@ -52,7 +55,7 @@ class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) 
     val internetState: LiveData<WebManager.InternetState> =
         serviceConnector.copyLiveData { repository -> repository.internetState }
 
-    val uiOAuthState: LiveData<WebManager.UiOAuthState> =
+    val uiOAuthState: LiveData<UiOAuthState> =
         serviceConnector.copyLiveData { repository -> repository.uiOAuthState }
 
     val pgnFileUploadState: LiveData<Repository.PgnFileUploadState> =
@@ -60,6 +63,11 @@ class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) 
 
     val isLoadingBroadcast: LiveData<Boolean> =
         serviceConnector.copyLiveData { repository -> repository.isLoadingBroadcast }
+
+    val isLoadingOnlineGame: LiveData<BoolEvent> =
+        serviceConnector.copyLiveData { repository -> repository.isLoadingOnlineGame }
+
+
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -69,42 +77,60 @@ class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) 
         emit(true)
     }
 
-    private val _isWritingSettings = MutableLiveData<Boolean>(false)
-    val isWritingSettings: LiveData<Boolean> = _isWritingSettings
+    private val _isWriteSettingsLoading = MutableLiveData<Boolean>(false)
+    val isWriteSettingsLoading: LiveData<Boolean> = _isWriteSettingsLoading
 
-    private val _isStartingOfflineGame = MutableLiveData<Boolean>(false)
-    val isStartingOfflineGame: LiveData<Boolean> = _isStartingOfflineGame
+    private val _isOfflineGameLoading = MutableLiveData<Boolean>(false)
+    val isOfflineGameLoading: LiveData<Boolean> = _isOfflineGameLoading
 
-    private val _isLoading: MediatorLiveData<Boolean> = MediatorLiveData()
-    val isLoading: LiveData<Boolean> = _isLoading
-    init {
-        _isLoading.addSource(isServiceConnected){ updateIsLoading() }
-        _isLoading.addSource(bluetoothState){ updateIsLoading() }
-        _isLoading.addSource(uiOAuthState){ updateIsLoading() }
-        _isLoading.addSource(pgnFileUploadState){ updateIsLoading() }
-        _isLoading.addSource(isLoadingBroadcast){ updateIsLoading() }
-        _isLoading.addSource(isWritingSettings){ updateIsLoading() }
-        _isLoading.addSource(isStartingOfflineGame){ updateIsLoading() }
+    private val _isBlinkLedLoading = MutableLiveData<Boolean>(false)
+    val isBlinkLedLoading: LiveData<Boolean> = _isBlinkLedLoading
+
+    private val _isLoading: MediatorLiveData<Boolean> = MediatorLiveData<Boolean>().apply {
+        addSource(isServiceConnected) { updateIsLoading() }
+        addSource(isLoadingOnlineGame) { updateIsLoading() }
+        addSource(bluetoothState) { updateIsLoading() }
+        addSource(uiOAuthState) { updateIsLoading() }
+        addSource(pgnFileUploadState) { updateIsLoading() }
+        addSource(isLoadingBroadcast) { updateIsLoading() }
+        addSource(isWriteSettingsLoading) { updateIsLoading() }
+        addSource(isOfflineGameLoading) { updateIsLoading() }
+        addSource(isBlinkLedLoading) { updateIsLoading() }
     }
+    val isLoading: LiveData<Boolean> = _isLoading
 
-    private fun updateIsLoading(){
+    private fun updateIsLoading() {
         _isLoading.value = (isServiceConnected.value != true) ||
                 (bluetoothState.value == ChessBoardModel.BluetoothState.BLUETOOTH_TURNING_ON) ||
                 (bluetoothState.value == ChessBoardModel.BluetoothState.SCANNING) ||
                 (bluetoothState.value == ChessBoardModel.BluetoothState.PAIRING) ||
                 (bluetoothState.value == ChessBoardModel.BluetoothState.CONNECTING) ||
-                (uiOAuthState.value is WebManager.UiOAuthState.AuthorizationLoading) ||
-                (pgnFileUploadState.value is Repository.PgnFileUploadState.UploadingToLichess)||
-                (pgnFileUploadState.value is Repository.PgnFileUploadState.ExchangingBluetoothData)||
+                (uiOAuthState.value is UiOAuthState.AuthorizationLoading) ||
+                (pgnFileUploadState.value is Repository.PgnFileUploadState.UploadingToLichess) ||
+                (pgnFileUploadState.value is Repository.PgnFileUploadState.ExchangingBluetoothData) ||
                 (isLoadingBroadcast.value == true) ||
-                (isWritingSettings.value == true)||
-                (isStartingOfflineGame.value == true)
+                (isLoadingOnlineGame.value?.value == true) ||
+                (isWriteSettingsLoading.value == true) ||
+                (isOfflineGameLoading.value == true) ||
+                (isBlinkLedLoading.value == true)
+    }
+
+    private val _isBluetoothLoading: MediatorLiveData<Boolean> = MediatorLiveData<Boolean>().apply {
+        addSource(isWriteSettingsLoading) { updateIsBluetoothLoading() }
+        addSource(isOfflineGameLoading) { updateIsBluetoothLoading() }
+        addSource(isBlinkLedLoading) { updateIsBluetoothLoading() }
+    }
+
+    private fun updateIsBluetoothLoading() {
+        _isBluetoothLoading.value = (isWriteSettingsLoading.value == true) ||
+                    (isOfflineGameLoading.value == true) ||
+                    (isBlinkLedLoading.value == true)
     }
 
     fun postErrorEvent(error: ErrorEvent) {
         viewModelScope.launch {
             val repository = serviceConnector.awaitConnected()
-            repository.errorEventBus.errorEvents.value = error
+            repository.eventBus.errorEvents.value = error
         }
     }
 
@@ -114,57 +140,37 @@ class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) 
     ) {
         viewModelScope.launch {
             val repository = serviceConnector.awaitConnected()
-            try {
-                repository.signIn(response, exception)
-            } catch (e: Exception) {
-                when (e) {
-                    is AuthorizationException,
-                    is NetworkException,
-                    is IOException,
-                    is JsonParseException -> {
-                        postErrorEvent(ErrorEvent.SignInError())
-                        e.printStackTrace()
-                    }
-                }
-            }
+            repository.signIn(response, exception)
         }
     }
 
-    fun signOut(){
+    fun signOut() {
         viewModelScope.launch {
             val repository = serviceConnector.awaitConnected()
             repository.signOut()
         }
+    }
 
+    fun isSignedIn(): Boolean{
+        return uiOAuthState.value is UiOAuthState.Authorized
     }
 
     fun writeSettings(settings: ChessBoardSettings) {
         viewModelScope.launch {
             val repository = serviceConnector.awaitConnected()
-            try {
-                _isWritingSettings.value = true
-                repository.writeSettings(settings)
-            } catch (e: IOException) {
-                postErrorEvent(ErrorEvent.WriteSettingsError())
-                e.printStackTrace()
-            }finally {
-                _isWritingSettings.value = false
-            }
+            _isWriteSettingsLoading.value = true
+            repository.writeSettings(settings)
+            _isWriteSettingsLoading.value = false
         }
     }
+
 
     fun startOfflineGame(gameStartRequest: GameStartRequest) {
         viewModelScope.launch {
             val repository = serviceConnector.awaitConnected()
-            try {
-                _isStartingOfflineGame.value = true
-                repository.startOfflineGame(gameStartRequest)
-            } catch (e: IOException) {
-                postErrorEvent(ErrorEvent.StartOfflineGameError())
-                e.printStackTrace()
-            }finally {
-                _isStartingOfflineGame.value = false
-            }
+            _isOfflineGameLoading.value = true
+            repository.startOfflineGame(gameStartRequest)
+            _isOfflineGameLoading.value = false
         }
     }
 
@@ -199,22 +205,14 @@ class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) 
     fun uploadPgn() {
         viewModelScope.launch {
             val repository = serviceConnector.awaitConnected()
-            try {
-                repository.uploadPgn()
-            }catch (e:IOException){
-                postErrorEvent(ErrorEvent.UploadPgnError())
-            }
+            repository.uploadPgn()
         }
     }
 
     fun blinkLeds() {
         viewModelScope.launch {
             val repository = serviceConnector.awaitConnected()
-            try {
-                repository.blinkLeds()
-            }catch (e:IOException){
-                postErrorEvent(ErrorEvent.BlinkLedsError())
-            }
+            repository.blinkLeds()
         }
     }
 

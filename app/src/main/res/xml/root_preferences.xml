@@ -6,14 +6,13 @@
         app:key="play_against_ai"
         app:title="Play Against Computer"/>
     <Preference
-        app:key="play_online"
-        app:title="Play Online"/>
+        app:key="play_online" />
     <Preference
         app:key="start_broadcast"
-        app:title="Broadcast Game Live to Lichess"/>
+        app:title="Broadcast Game"/>
     <Preference
         app:key="upload_games"
-        app:title="Upload Saved Games to Lichess"/>
+        app:title="View Saved Games"/>
 
     <SwitchPreferenceCompat
         app:key="learning_mode"
@@ -23,7 +22,7 @@
     <Preference
         app:key="test_connection"
         app:title="Test Bluetooth Connection"
-        app:summary="LEDs on the chessboard will blink on click"/>
+        app:summary="LEDs on the chessboard will blink"/>
 
 
 

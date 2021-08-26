@@ -4,7 +4,7 @@ import androidx.lifecycle.*
 import com.google.gson.JsonParseException
 import com.guykn.smartchessboard2.ServiceConnector
 import com.guykn.smartchessboard2.network.lichess.WebManager
-import com.guykn.smartchessboard2.ui.util.Event
+import com.guykn.smartchessboard2.newui.util.Event
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import net.openid.appauth.AuthorizationException

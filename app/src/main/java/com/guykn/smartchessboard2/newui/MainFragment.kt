@@ -1,6 +1,7 @@
 package com.guykn.smartchessboard2.newui
 
 import android.app.AlertDialog
+import android.app.Dialog
 import android.app.ProgressDialog
 import android.bluetooth.BluetoothAdapter
 import android.content.Context
@@ -8,26 +9,31 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.activityViewModels
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SwitchPreferenceCompat
+import com.google.android.material.snackbar.Snackbar
+import com.guykn.smartchessboard2.EventBus.ErrorEvent
+import com.guykn.smartchessboard2.EventBus.SuccessEvent
 import com.guykn.smartchessboard2.R
+import com.guykn.smartchessboard2.Repository.PgnFileUploadState.*
 import com.guykn.smartchessboard2.bluetooth.ChessBoardModel.BluetoothState.*
 import com.guykn.smartchessboard2.bluetooth.ChessBoardSettings
 import com.guykn.smartchessboard2.bluetooth.companiondevice.CompanionDeviceConnector
-import com.guykn.smartchessboard2.network.lichess.WebManager
 import com.guykn.smartchessboard2.network.lichess.WebManager.InternetState.*
 import com.guykn.smartchessboard2.network.lichess.WebManager.UiOAuthState
 import com.guykn.smartchessboard2.network.oauth2.getLichessAuthIntent
-import com.guykn.smartchessboard2.newui.viewmodels.MainViewModel
 import com.guykn.smartchessboard2.openCustomChromeTab
 import dagger.hilt.android.AndroidEntryPoint
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationResponse
 import net.openid.appauth.AuthorizationService
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
+
 
 @AndroidEntryPoint
 class MainFragment : PreferenceFragmentCompat() {
@@ -50,14 +56,52 @@ class MainFragment : PreferenceFragmentCompat() {
     private lateinit var blinkLedsButton: Preference
     private lateinit var learningModeSwitch: SwitchPreferenceCompat
 
-    private var loadingDialog: ProgressDialog? = null
-    private var bluetoothMessageDialog: AlertDialog? = null
+    private var bluetoothMessageDialog: Dialog? = null
+    private var loadingBroadcastDialog: Dialog? = null
+    private var uploadingPgnDialog: ProgressDialog? = null
 
     private lateinit var authService: AuthorizationService
+
+    private val isAwaitingLaunchLichessHomePage = AtomicBoolean(false)
+
+    private var signInCallback: (()->Unit)? = null
 
     private val lichessAuthLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
+        signInCallback = null
+        continueLichessLogin(result)
+    }
+
+    private val lichessAuthLauncherWithStartOnlineGame = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        signInCallback = {
+            mainViewModel.startOnlineGame()
+        }
+        continueLichessLogin(result)
+    }
+
+    private val lichessAuthLauncherWithStartBroadcast = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        signInCallback = {
+            mainViewModel.startBroadcast()
+        }
+        continueLichessLogin(result)
+    }
+
+    private val lichessAuthLauncherWithViewSavedGames = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        signInCallback = {
+           startViewSavedGames()
+        }
+        continueLichessLogin(result)
+    }
+
+
+    private fun continueLichessLogin(result: ActivityResult?) {
         result?.data?.let {
             val authorizationResponse = AuthorizationResponse.fromIntent(it)
             val authorizationException = AuthorizationException.fromIntent(it)
@@ -67,6 +111,7 @@ class MainFragment : PreferenceFragmentCompat() {
             )
         } ?: Log.w(TAG, "OAuth custom tab intent returned with no data. ")
     }
+
 
     override fun onAttach(context: Context) {
         super.onAttach(context)
@@ -91,7 +136,7 @@ class MainFragment : PreferenceFragmentCompat() {
                 is UiOAuthState.AuthorizationLoading -> {
                 }
                 is UiOAuthState.NotAuthorized -> {
-                    lichessAuthLauncher.launch(authService.getLichessAuthIntent())
+                    startLichessSignIn()
                 }
                 is UiOAuthState.Authorized -> {
                     mainViewModel.signOut()
@@ -106,27 +151,37 @@ class MainFragment : PreferenceFragmentCompat() {
             true
         }
 
-        // todo: for all the buttons that require sign in, redirect the user to the sign in page if they are not currently signed in
-
         playOnlineButton.setOnPreferenceClickListener {
-            // todo: also open the lichess home page if no active game is found
-            mainViewModel.startOnlineGame()
-            mainViewModel.activeOnlineGame.value?.value?.let { lichessGame ->
-                openCustomChromeTab(requireContext(), lichessGame.url)
+            if (!mainViewModel.isSignedIn()) {
+                lichessAuthLauncherWithStartOnlineGame.launch(authService.getLichessAuthIntent())
+            } else {
+                mainViewModel.startOnlineGame()
+                mainViewModel.activeOnlineGame.value?.value?.let { lichessGame ->
+                    openCustomChromeTab(requireContext(), lichessGame.url)
+                    isAwaitingLaunchLichessHomePage.set(false)
+                } ?: isAwaitingLaunchLichessHomePage.set(true)
             }
             true
         }
 
         startBroadcastButton.setOnPreferenceClickListener {
-            mainViewModel.startBroadcast()
-            mainViewModel.broadcastRound.value?.value?.let { broadcastRound ->
-                openCustomChromeTab(requireContext(), broadcastRound.url)
+            if (!mainViewModel.isSignedIn()) {
+                lichessAuthLauncherWithStartBroadcast.launch(authService.getLichessAuthIntent())
+            } else {
+                mainViewModel.startBroadcast()
+                mainViewModel.broadcastRound.value?.value?.let { broadcastRound ->
+                    openCustomChromeTab(requireContext(), broadcastRound.url)
+                }
             }
             true
         }
 
         uploadGamesButton.setOnPreferenceClickListener {
-            mainViewModel.uploadPgn()
+            if (!mainViewModel.isSignedIn()) {
+                lichessAuthLauncherWithViewSavedGames.launch(authService.getLichessAuthIntent())
+            } else {
+                startViewSavedGames()
+            }
             true
         }
 
@@ -144,8 +199,42 @@ class MainFragment : PreferenceFragmentCompat() {
         }
     }
 
+
+    private fun startLichessSignIn() {
+        lichessAuthLauncher.launch(authService.getLichessAuthIntent())
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+
+        mainViewModel.activeOnlineGame.observe(viewLifecycleOwner) { lichessGameEvent ->
+            if (lichessGameEvent?.receive() == true && lichessGameEvent.value != null) {
+                openCustomChromeTab(requireContext(), lichessGameEvent.value.url)
+                isAwaitingLaunchLichessHomePage.set(false)
+            }
+        }
+
+        mainViewModel.broadcastRound.observe(viewLifecycleOwner) { broadcastEvent ->
+            if (broadcastEvent?.receive() == true && broadcastEvent.value != null) {
+                openCustomChromeTab(requireContext(), broadcastEvent.value.url)
+            }
+        }
+
+        mainViewModel.isLoadingOnlineGame.observe(viewLifecycleOwner) { isLoadingEvent ->
+            if (isLoadingEvent?.receive() == true && isAwaitingLaunchLichessHomePage.get() && !isLoadingEvent.value) {
+                isAwaitingLaunchLichessHomePage.set(false)
+                openCustomChromeTab(requireContext(), "https://lichess.org/")
+            }
+        }
+
+        // if the user sucsessfully signed in, invoke the signInCallback
+        mainViewModel.uiOAuthState.observe(viewLifecycleOwner){
+            if (it is UiOAuthState.Authorized){
+                signInCallback?.invoke()
+                signInCallback = null
+            }
+        }
 
         mainViewModel.uiOAuthState.observe(viewLifecycleOwner) { authState ->
             when (authState) {
@@ -163,111 +252,307 @@ class MainFragment : PreferenceFragmentCompat() {
             }
         }
 
-        mainViewModel.activeOnlineGame.observe(viewLifecycleOwner) { lichessGameEvent ->
-            if (lichessGameEvent?.receive() == true && lichessGameEvent.value != null) {
-                openCustomChromeTab(requireContext(), lichessGameEvent.value.url)
+        mainViewModel.activeOnlineGame.observe(viewLifecycleOwner){
+            if (it?.value == null){
+                playOnlineButton.title = "Play Online"
+                playOnlineButton.summary = ""
+            }else{
+                playOnlineButton.title = "Online Game In Progress"
+                playOnlineButton.summary = "Click here to resume"
             }
-        }
-
-        mainViewModel.broadcastRound.observe(viewLifecycleOwner){ broadcastEvent ->
-            if (broadcastEvent?.receive() == true && broadcastEvent.value != null){
-                openCustomChromeTab(requireContext(), broadcastEvent.value.url)
-            }
-        }
-
-        mainViewModel.chessBoardSettings.observe(viewLifecycleOwner){ chessBoardSettings ->
-            learningModeSwitch.isChecked = chessBoardSettings?.learningMode ?: return@observe
         }
 
         mainViewModel.numGamesToUpload.observe(viewLifecycleOwner){ numGamesToUpload ->
-            val actualNumGamesToUpload = numGamesToUpload ?: 0
-            uploadGamesButton.summary = "$actualNumGamesToUpload games available to upload"
-            uploadGamesButton.isEnabled = actualNumGamesToUpload != 0
-        }
-
-        mainViewModel.isLoading.observe(viewLifecycleOwner){ isLoading ->
-            if (isLoading == true){
-                loadingDialog?.dismiss()
-                loadingDialog = ProgressDialog.show(requireContext(), "Loading", "", true)
-            }else{
-                loadingDialog?.dismiss()
-                loadingDialog = null
+            when(numGamesToUpload){
+                0,null->{
+                    uploadGamesButton.summary = ""
+                }
+                else->{
+                    uploadGamesButton.summary = "$numGamesToUpload games need to be uploaded"
+                }
             }
         }
 
-        mainViewModel.bluetoothState.observe(viewLifecycleOwner){ bluetoothState ->
+        mainViewModel.chessBoardSettings.observe(viewLifecycleOwner) { chessBoardSettings ->
+            learningModeSwitch.isChecked = chessBoardSettings?.learningMode ?: return@observe
+        }
+
+        mainViewModel.bluetoothState.observe(viewLifecycleOwner) { bluetoothState ->
             bluetoothMessageDialog?.dismiss()
             bluetoothMessageDialog = null
-            when(bluetoothState){
-                null->{
+
+            when (bluetoothState) {
+                null -> {
                 }
-                BLUETOOTH_NOT_SUPPORTED ->{
+                BLUETOOTH_NOT_SUPPORTED -> {
                     bluetoothMessageDialog = AlertDialog.Builder(requireContext())
                         .setTitle("Bluetooth Error")
                         .setMessage("Your Device does not support bluetooth. ")
                         .setCancelable(false)
-                        .setPositiveButton("Close App"){_,_->
+                        .setPositiveButton("Close App") { _, _ ->
                             activity?.finish()
                         }
                         .show()
                 }
 
-                BLUETOOTH_NOT_ENABLED ->{
+                BLUETOOTH_NOT_ENABLED -> {
                     bluetoothMessageDialog = AlertDialog.Builder(requireContext())
                         .setTitle("Bluetooth Error")
                         .setMessage("Bluetooth is not enabled. ")
                         .setCancelable(false)
-                        .setPositiveButton("Enable Bluetooth"){_,_->
+                        .setPositiveButton("Enable Bluetooth") { _, _ ->
                             requestEnableBluetooth()
                         }
                         .show()
                     requestEnableBluetooth()
                 }
 
-                BLUETOOTH_TURNING_ON, SCANNING, PAIRING, CONNECTING ->{
-                    // the loading icon will already be displayed here by isLoading from the view model
-                    bluetoothMessageDialog?.dismiss()
-                    bluetoothMessageDialog = null
+                BLUETOOTH_TURNING_ON -> {
+                    bluetoothMessageDialog =
+                        ProgressDialog.show(
+                            requireContext(),
+                            "Bluetooth Loading...",
+                            "Bluetooth is turning on",
+                            true
+                        )
+
+                }
+                SCANNING -> {
+                    bluetoothMessageDialog =
+                        ProgressDialog.show(
+                            requireContext(),
+                            "Bluetooth Loading...",
+                            "Performing bluetooth scan",
+                            true
+                        )
+                }
+                PAIRING -> {
+                    bluetoothMessageDialog = ProgressDialog.show(
+                        requireContext(),
+                        "Bluetooth Loading...",
+                        "Pairing with chessboard",
+                        true
+                    )
+                }
+                CONNECTING -> {
+                    bluetoothMessageDialog = ProgressDialog.show(
+                        requireContext(),
+                        "Bluetooth Loading...",
+                        "Connecting to chessboard",
+                        true
+                    )
                 }
 
-                DISCONNECTED, CONNECTION_FAILED ->{
+                DISCONNECTED, CONNECTION_FAILED, SCAN_FAILED -> {
                     bluetoothMessageDialog = AlertDialog.Builder(requireContext())
                         .setTitle("Bluetooth Error")
-                        .setMessage("Bluetooth Disconnected")
+                        .setMessage("Failed to connect to with Bluetooth")
                         .setCancelable(false)
-                        .setPositiveButton("Try Again"){_,_->
+                        .setPositiveButton("Try Again") { _, _ ->
                             companionDeviceConnector.refreshBluetoothDevice()
                         }
                         .show()
                 }
-                REQUESTING_USER_INPUT->{} // requesting user input will open a separate window with an intent, so no UI change is necessary
-                CONNECTED ->{
+                REQUESTING_USER_INPUT -> {
+                } // requesting user input will open a separate window with an intent, so no UI change is necessary
+                CONNECTED -> {
                 }
             }
         }
 
-        mainViewModel.internetState.observe(viewLifecycleOwner){ internetState ->
-            when(internetState){
-                null->{}
-                is Connected->{
-                    
+        mainViewModel.successEvents.observe(viewLifecycleOwner) { successEvent ->
+            if (successEvent?.receive() != true) {
+                return@observe
+            }
+            when (successEvent) {
+                is SuccessEvent.BlinkLedsSuccess -> {
+                    Snackbar.make(
+                        view,
+                        "Leds are now blinking on the chessboard",
+                        resources.getInteger(R.integer.led_test_snackbar_duration)
+                    )
+                        .show()
                 }
-                is NotConnected->{
+                is SuccessEvent.ChangeSettingsSuccess -> {
+                    Snackbar.make(
+                        view,
+                        if (successEvent.settings.learningMode) "Learning Mode Enabled" else "Learning Mode Disabled",
+                        Snackbar.LENGTH_SHORT
+                    )
+                        .show()
+                }
+                is SuccessEvent.SignInSuccess -> {
+                    Snackbar.make(
+                        view,
+                        "Signed in as ${successEvent.userInfo.username}",
+                        Snackbar.LENGTH_SHORT
+                    )
+                        .show()
+                }
+                is SuccessEvent.SignOutSuccess -> {
+                    Snackbar.make(
+                        view,
+                        "Signed Out Successfully",
+                        Snackbar.LENGTH_SHORT
+                    )
+                        .show()
+                }
+                is SuccessEvent.StartOfflineGameSuccess -> {
+                    Snackbar.make(
+                        view,
+                        "Started Game Against Computer",
+                        Snackbar.LENGTH_SHORT
+                    )
+                        .show()
+                }
+                is SuccessEvent.UploadGamesSuccess -> openLichessSavedGames()
+            }
+        }
 
+        mainViewModel.errorEvents.observe(viewLifecycleOwner) { errorEvent ->
+            if (errorEvent?.receive() != true) {
+                return@observe
+            }
+            when (errorEvent) {
+                is ErrorEvent.BluetoothIOError -> {
+                    // Do nothing. Bluetooth Errors are already handled by the Bluetooth State observer
                 }
-                is TooManyRequests->{
+                is ErrorEvent.InternetIOError -> {
+                    Snackbar.make(
+                        view,
+                        "Could Not Connect to Lichess. Please check your connection and try again. ",
+                        Snackbar.LENGTH_SHORT
+                    )
+                        .show()
+                }
+                is ErrorEvent.MiscError -> {
+                    Snackbar.make(
+                        view,
+                        "Error: ${errorEvent.description}",
+                        Snackbar.LENGTH_SHORT
+                    )
+                        .show()
+                }
+                is ErrorEvent.NoLongerAuthorizedError -> {
+                    Snackbar.make(
+                        view,
+                        "Unexpectedly signed out. ",
+                        Snackbar.LENGTH_SHORT
+                    )
+                        .setAction("Sign In") { startLichessSignIn() }
+                        .show()
+                }
+                is ErrorEvent.SignInError -> {
+                    Snackbar.make(
+                        view,
+                        "Could Not Sign In",
+                        Snackbar.LENGTH_SHORT
+                    )
+                        .setAction("Try Again") { startLichessSignIn() }
+                        .show()
+                }
+                is ErrorEvent.TooManyRequests -> {
+                    val timeUntilServerAvailable =
+                        errorEvent.timeForValidRequests - System.currentTimeMillis()
+                    val timeUntilServerAvailableSeconds = timeUntilServerAvailable / 1000
+                    Snackbar.make(
+                        view,
+                        "Lichess Servers are overwhelmed. Please try again in $timeUntilServerAvailableSeconds seconds. ",
+                        Snackbar.LENGTH_LONG
+                    )
+                        .show()
+                }
+                is ErrorEvent.IllegalGameSelected -> {
+                    AlertDialog.Builder(requireContext())
+                        .setTitle("Invalid Game")
+                        .setMessage("You have chosen an invalid game mode. Only unlimited, classic, and rapid time controls are supported. No rules variants are supported. ")
+                        .setPositiveButton("OK") { _, _ -> }
+                        .show()
 
                 }
             }
+        }
+
+        mainViewModel.isLoadingBroadcast.observe(viewLifecycleOwner) { isLoading ->
+            loadingBroadcastDialog?.dismiss()
+            loadingBroadcastDialog = null
+            if (isLoading) {
+                loadingBroadcastDialog = ProgressDialog.show(
+                    requireContext(),
+                    null,
+                    "Creating Broadcast",
+                    true
+                )
+            }
+        }
+
+        mainViewModel.isLoadingOnlineGame.observe(viewLifecycleOwner) { isLoading ->
+            loadingBroadcastDialog?.dismiss()
+            loadingBroadcastDialog = null
+            if (isLoading?.value == true) {
+                loadingBroadcastDialog = ProgressDialog.show(
+                    requireContext(),
+                    null,
+                    "Starting Online Game",
+                    true
+                )
+            }
+        }
+
+        mainViewModel.pgnFileUploadState.observe(viewLifecycleOwner) { pgnFileUploadState ->
+            when (pgnFileUploadState) {
+                NotUploading -> {
+                    uploadingPgnDialog?.dismiss()
+                    uploadingPgnDialog = null
+                }
+                ExchangingBluetoothData,
+                is UploadingToLichess -> {
+                    if (uploadingPgnDialog == null) {
+                        uploadingPgnDialog = ProgressDialog.show(
+                            requireContext(),
+                            "Loading...",
+                            "Uploading Saved Games",
+                            true
+                        )
+                    }
+                }
+            }
+        }
+
+
+    }
+
+
+    private fun startViewSavedGames() {
+        when (mainViewModel.numGamesToUpload.value) {
+            // if there are no games to upload, simply open the custom chrome tab. Otherwise, first upload the games, then open the chrome tab.
+            0, null -> {
+                Log.d(TAG, "Only opening lichess. ")
+                openLichessSavedGames()
+            }
+            else -> mainViewModel.uploadPgn()
+        }
+        mainViewModel.uploadPgn()
+    }
+
+    private fun openLichessSavedGames() {
+        val authState = mainViewModel.uiOAuthState.value
+        if (authState is UiOAuthState.Authorized) {
+            openCustomChromeTab(requireContext(), authState.userInfo.importedGamesUrl())
+        } else {
+            Log.w(
+                TAG,
+                "Received Success Event of UploadGamesSuccess while not signed in. "
+            )
         }
     }
 
-    private fun requestEnableBluetooth(){
+    private fun requestEnableBluetooth() {
         Log.d(TAG, "requestEnableBluetooth() called")
-        if (CompanionDeviceConnector.shouldRequestEnableBluetooth()){
+        if (CompanionDeviceConnector.shouldRequestEnableBluetooth()) {
             val intent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
             startActivityForResult(intent, REQUEST_ENABLE_BLUETOOTH)
-        }else{
+        } else {
             Log.w(TAG, "Tried to request enabling bluetooth while bluetooth was already enabled. ")
         }
     }

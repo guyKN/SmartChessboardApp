@@ -13,7 +13,9 @@ interface LichessApi {
      */
     class InvalidMessageException(message: String) : Exception(message)
 
-    data class UserInfo(val id: String, val username: String)
+    data class UserInfo(val id: String, val username: String){
+        fun importedGamesUrl(): String = "https://lichess.org/@/$id/import#games"
+    }
 
     @GET("/api/account")
     suspend fun getUserInfo(@Header("Authorization") authentication: String): Response<UserInfo>

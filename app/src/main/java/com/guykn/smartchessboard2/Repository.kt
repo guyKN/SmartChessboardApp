@@ -4,16 +4,19 @@ import android.bluetooth.BluetoothDevice
 import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.JsonParseException
-import com.guykn.smartchessboard2.ErrorEventBus.ErrorEvent
+import com.guykn.smartchessboard2.EventBus.ErrorEvent
+import com.guykn.smartchessboard2.EventBus.SuccessEvent
 import com.guykn.smartchessboard2.bluetooth.*
 import com.guykn.smartchessboard2.bluetooth.ChessBoardModel.BluetoothState.CONNECTED
+import com.guykn.smartchessboard2.network.lichess.BoolEvent
 import com.guykn.smartchessboard2.network.lichess.LichessApi
 import com.guykn.smartchessboard2.network.lichess.LichessApi.BroadcastRound
 import com.guykn.smartchessboard2.network.lichess.WebManager
 import com.guykn.smartchessboard2.network.oauth2.GenericNetworkException
+import com.guykn.smartchessboard2.network.oauth2.NetworkException
 import com.guykn.smartchessboard2.network.oauth2.NotSignedInException
 import com.guykn.smartchessboard2.network.oauth2.TooManyRequestsException
-import com.guykn.smartchessboard2.ui.util.EventWithValue
+import com.guykn.smartchessboard2.newui.util.EventWithValue
 import dagger.hilt.android.scopes.ServiceScoped
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,9 +28,10 @@ import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
-// TODO: 7/4/2021 Make sure error handling is done properly with kotlin flows (maybe use the flow.catch operator)
 // todo: replace destroy callbacks with lifecycle-aware components
 // TODO: 6/30/2021 Make sure everything is closed properly when the service is destroyed
+// todo: make sure that every exception that is thrown has a place to be caught. 
+
 
 typealias BroadcastEvent = EventWithValue<BroadcastRound?>
 typealias LichessGameEvent = EventWithValue<LichessApi.Game?>
@@ -40,7 +44,7 @@ class Repository @Inject constructor(
     private val savedBroadcastTournament: SavedBroadcastTournament,
     private val clientToServerMessageProvider: ClientToServerMessageProvider,
     private val gson: Gson,
-    val errorEventBus: ErrorEventBus,
+    val eventBus: EventBus,
     val chessBoardModel: ChessBoardModel
 ) : BluetoothManager.PgnFilesCallback {
 
@@ -56,7 +60,7 @@ class Repository @Inject constructor(
     private val isOnlineGameActive = AtomicBoolean(false)
 
     private val _activeGame = MutableStateFlow<LichessGameEvent>(LichessGameEvent(null))
-    val activeGame = _activeGame as StateFlow<LichessGameEvent>
+    val activeGame: StateFlow<LichessGameEvent> = _activeGame
 
     private val _lichessGameState: MutableStateFlow<LichessApi.LichessGameState?> =
         MutableStateFlow(null)
@@ -84,10 +88,12 @@ class Repository @Inject constructor(
     private val _isLoadingBroadcast: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val isLoadingBroadcast: StateFlow<Boolean> = _isLoadingBroadcast
 
+    val isLoadingOnlineGame: StateFlow<BoolEvent> = webManager.isLoadingOnlineGame
+
 
     init {
         // Whether a move is made on the physical chessboard, update the lichess broadcast.
-        coroutineScope.launch {
+        coroutineScope.launch outerLaunch@{
             var prevJob: Job? = null
             var prevGameId: String? = null
             chessBoardModel.boardState.combinePairs(isBroadcastActive)
@@ -99,38 +105,46 @@ class Repository @Inject constructor(
                     prevJob?.cancel()
                     prevJob = launch {
                         val currentGameId = chessBoardModel.gameInfo.value?.gameId
-                        val broadcastRound: BroadcastRound = if (prevGameId != currentGameId) {
-                            createBroadcastRound()
+                        val broadcastRound: BroadcastRound? = if (prevGameId != currentGameId) {
+                            createBroadcastRoundAndRetry()
                         } else {
-                            _broadcastRound.value.value ?: createBroadcastRound()
+                            _broadcastRound.value.value ?: createBroadcastRoundAndRetry()
+                        }
+                        if (broadcastRound == null) {
+                            return@launch
                         }
                         prevGameId = currentGameId
                         // try to push to the broadcast until you succeed, retrying the request on errors.
                         while (true) {
+                            yield()
+                            // todo: replace this big chunk of code with a different method
                             try {
                                 Log.d(TAG, "pushing pgn to broadcast")
                                 webManager.pushToBroadcast(broadcastRound, pgn)
                                 break
                             } catch (e: Exception) {
                                 when (e) {
-                                    is NotSignedInException -> {
-                                        errorEventBus.errorEvents.value = ErrorEvent.NoLongerAuthorizedError()
+                                    is NotSignedInException,
+                                    is AuthorizationException -> {
+                                        eventBus.errorEvents.value =
+                                            ErrorEvent.NoLongerAuthorizedError()
+                                        stopBroadcast()
+                                        break
                                     }
                                     is GenericNetworkException,
-                                    is AuthorizationException,
                                     is JsonParseException -> {
                                         Log.w(
                                             TAG,
                                             "Error pushing pgn to broadcast: ${e.message}"
                                         )
-//                                        errorEventBus.errorEvents.value =
-//                                            ErrorEvent.OtherErrorPushingToBroadcast()
-
+                                        eventBus.errorEvents.value =
+                                            ErrorEvent.MiscError("Couldn't update broadcast. ")
+                                        stopBroadcast()
                                         break
                                     }
                                     is TooManyRequestsException -> {
-//                                        errorEventBus.errorEvents.value =
-//                                            ErrorEvent.TooManyRequests()
+                                        eventBus.errorEvents.value = ErrorEvent.TooManyRequests(e.timeForValidRequests)
+                                        stopBroadcast()
                                         break
                                     }
                                     is IOException -> {
@@ -139,6 +153,7 @@ class Repository @Inject constructor(
                                             TAG,
                                             "Error pushing pgn to broadcast: ${e.message}"
                                         )
+                                        eventBus.errorEvents.value = ErrorEvent.InternetIOError()
                                         delay(2500)
                                     }
                                     else -> throw e
@@ -170,18 +185,30 @@ class Repository @Inject constructor(
                 prevJob = launch {
                     _activeGame.value.value?.let { game ->
                         while (true) {
+                            // extract this bing chunk of code into a method
+                            yield()
                             try {
                                 webManager.pushGameMove(game, move)
                                 lastSentBoardState = boardState
                                 break
                             } catch (e: Exception) {
                                 when (e) {
-                                    is NotSignedInException,
-                                    is AuthorizationException,
-                                    is GenericNetworkException,
-                                    is JsonParseException -> {
+                                    is NotSignedInException, is AuthorizationException -> {
+                                        Log.w(
+                                            TAG,
+                                            "Error with authorization to lichess making game move: ${e.message} "
+                                        )
+                                        eventBus.errorEvents.value =
+                                            ErrorEvent.NoLongerAuthorizedError()
+                                        stopOnlineGame()
+                                        break
+                                    }
+                                    is GenericNetworkException, is JsonParseException -> {
                                         // in case of an exception that can't be recovered from, stop retrying the request
                                         Log.w(TAG, "Error making game move: ${e.message}")
+                                        eventBus.errorEvents.value =
+                                            ErrorEvent.MiscError("Couldn't make online game move. ")
+                                        stopOnlineGame()
                                         break
                                     }
                                     is TooManyRequestsException -> {
@@ -189,10 +216,13 @@ class Repository @Inject constructor(
                                             TAG,
                                             "Too many request sent to lichess, please wait and try again later."
                                         )
+                                        eventBus.errorEvents.value = ErrorEvent.TooManyRequests(e.timeForValidRequests)
+                                        stopOnlineGame()
                                         break
                                     }
                                     is IOException -> {
                                         Log.w(TAG, "Failed push to lichess game: ${e.message}")
+                                        eventBus.errorEvents.value = ErrorEvent.InternetIOError()
                                         delay(2500)
                                     }
                                     else -> throw e
@@ -211,12 +241,11 @@ class Repository @Inject constructor(
                 launch {
                     try {
                         bluetoothManager.writeMessage(
-                            clientToServerMessageProvider.forceBluetoothMoves(
-                                gameState
-                            )
+                            clientToServerMessageProvider.forceBluetoothMoves(gameState)
                         )
                     } catch (e: IOException) {
                         Log.w(TAG, "Failed to write game state via bluetooth: ${e.message}")
+                        eventBus.errorEvents.value = ErrorEvent.BluetoothIOError()
                     }
                 }
             }
@@ -234,6 +263,7 @@ class Repository @Inject constructor(
                                 )
                             } catch (e: IOException) {
                                 Log.w(TAG, "Failed to write game state to chessboard. ")
+                                eventBus.errorEvents.value = ErrorEvent.BluetoothIOError()
                             }
                         }
                     }
@@ -243,9 +273,9 @@ class Repository @Inject constructor(
 
         // When the physical chessboard starts a different game while an online game is active, cancel the online game.
         coroutineScope.launch {
-            chessBoardModel.gameInfo.collect { gameType ->
-                val id = activeGame.value.value?.id
-                if (id != null && id != gameType?.gameId) {
+            chessBoardModel.gameInfo.collect { physicalBoardGameType ->
+                val lichessGameId = activeGame.value.value?.id
+                if (lichessGameId != null && lichessGameId != physicalBoardGameType?.gameId) {
                     Log.d(TAG, "canceling online game because another game started ")
                     stopOnlineGame()
                 }
@@ -257,10 +287,31 @@ class Repository @Inject constructor(
     suspend fun signIn(
         response: AuthorizationResponse?,
         exception: AuthorizationException?
-    ): LichessApi.UserInfo = webManager.signIn(response, exception)
+    ): LichessApi.UserInfo? {
+        try {
+            return webManager.signIn(response, exception).also {
+                eventBus.successEvents.value = SuccessEvent.SignInSuccess(it)
+            }
+        } catch (e: Exception) {
+            when (e) {
+                is AuthorizationException,
+                is NetworkException,
+                is IOException,
+                is JsonParseException -> {
+                    eventBus.errorEvents.value = ErrorEvent.SignInError()
+                    Log.w(TAG, "Error signing in: ${e.message}")
+                }
+                else -> throw e
+            }
+            return null
+        }
+    }
 
     fun signOut() {
+        stopOnlineGame()
+        stopBroadcast()
         webManager.signOut()
+        eventBus.successEvents.value = SuccessEvent.SignOutSuccess()
     }
 
 
@@ -281,23 +332,83 @@ class Repository @Inject constructor(
     }
 
     private suspend fun createBroadcastRound(): BroadcastRound {
+        val broadcastTournament = getFreshBroadcastTournament()
+        val broadcastRound = webManager.createBroadcastRound(broadcastTournament)
+        _broadcastRound.value = BroadcastEvent(broadcastRound)
+        return broadcastRound
+    }
+
+    // calls createBroadcastRound() until no IOException occurs when creating it. In case of other exceptions, reports them and returns null.
+    private suspend fun createBroadcastRoundAndRetry(): BroadcastRound? {
+        _isLoadingBroadcast.value = true
         try {
-            _isLoadingBroadcast.value = true
-            val broadcastTournament = getFreshBroadcastTournament()
-            val broadcastRound = webManager.createBroadcastRound(broadcastTournament)
-            _broadcastRound.value = BroadcastEvent(broadcastRound)
-            return broadcastRound
-        }finally {
+            while (true) {
+                yield()
+                try {
+                    Log.d(TAG, "creating broadcast round")
+                    return createBroadcastRound()
+                } catch (e: Exception) {
+                    when (e) {
+                        is NotSignedInException, is AuthorizationException -> {
+                            Log.w(
+                                TAG,
+                                "Error with authorization to lichess creating broadcast round: ${e.message} "
+                            )
+                            eventBus.errorEvents.value =
+                                ErrorEvent.NoLongerAuthorizedError()
+                            return null
+                        }
+                        is GenericNetworkException, is JsonParseException -> {
+                            // in case of an exception that can't be recovered from, stop retrying the request
+                            Log.w(TAG, "Error creating broadcast round: ${e.message}")
+                            eventBus.errorEvents.value =
+                                ErrorEvent.MiscError("Couldn't create broadcast. ")
+                            return null
+                        }
+                        is TooManyRequestsException -> {
+                            Log.w(
+                                TAG,
+                                "Too many request sent to lichess, please wait and try again later."
+                            )
+                            eventBus.errorEvents.value = ErrorEvent.TooManyRequests(e.timeForValidRequests)
+                            return null
+                        }
+                        is IOException -> {
+                            Log.w(TAG, "Failed creating broadcast: ${e.message}")
+                            eventBus.errorEvents.value = ErrorEvent.InternetIOError()
+                            delay(2500)
+                            continue
+                        }
+                        else -> throw e
+                    }
+                }
+            }
+        } finally {
             _isLoadingBroadcast.value = false
+
         }
     }
 
     suspend fun writeSettings(settings: ChessBoardSettings) {
-        bluetoothManager.writeMessage(clientToServerMessageProvider.writePreferences(settings))
+        try {
+            bluetoothManager.writeMessage(clientToServerMessageProvider.writePreferences(settings))
+            eventBus.successEvents.value = SuccessEvent.ChangeSettingsSuccess(settings)
+        } catch (e: IOException) {
+            Log.w(TAG, "Error writing settings: ${e.message}")
+            eventBus.errorEvents.value = ErrorEvent.BluetoothIOError()
+        }
     }
 
     suspend fun startOfflineGame(gameStartRequest: GameStartRequest) {
-        bluetoothManager.writeMessage(clientToServerMessageProvider.startNormalGame(gameStartRequest))
+        try {
+            bluetoothManager.writeMessage(
+                clientToServerMessageProvider.startNormalGame(gameStartRequest)
+            )
+            eventBus.successEvents.value = SuccessEvent.StartOfflineGameSuccess()
+        } catch (e: IOException) {
+            Log.w(TAG, "Error writing starting offline Game: ${e.message}")
+            eventBus.errorEvents.value = ErrorEvent.BluetoothIOError()
+        }
     }
 
     fun startOnlineGame() {
@@ -315,6 +426,7 @@ class Repository @Inject constructor(
                     try {
                         webManager.awaitGameStart()?.let { game ->
                             _activeGame.value = LichessGameEvent(game)
+                            Log.d(TAG, "activeGame changed to $game")
                             webManager.gameStream(game).collect { gameState ->
                                 yield()
                                 _lichessGameState.value = gameState
@@ -334,20 +446,20 @@ class Repository @Inject constructor(
                                     TAG,
                                     "Only standard games with rapid or classical time controls are allowed. "
                                 )
+                                eventBus.errorEvents.value = ErrorEvent.IllegalGameSelected()
                                 shouldStop = true
                             }
                             is NotSignedInException,
                             is AuthorizationException -> {
-                                Log.w(
-                                    TAG,
-                                    "Error ocoured with authorization to lichess: ${e.message}"
-                                )
+                                Log.w(TAG, "Error ocoured with authorization to lichess: ${e.message}")
+                                eventBus.errorEvents.value = ErrorEvent.NoLongerAuthorizedError()
                                 shouldStop = true
                             }
                             is LichessApi.InvalidMessageException,
                             is JsonParseException,
                             is GenericNetworkException -> {
                                 Log.w(TAG, "Invalid data received from lichess: ${e.message}")
+                                eventBus.errorEvents.value = ErrorEvent.MiscError("Error playing online game")
                                 shouldStop = true
                             }
                             is IOException -> {
@@ -355,7 +467,7 @@ class Repository @Inject constructor(
                                     TAG,
                                     "Error occurred trying to stream lichess game: ${e.message}"
                                 )
-                                e.printStackTrace()
+                                eventBus.errorEvents.value = ErrorEvent.InternetIOError()
                                 // wait a short while before trying to connect again.
                                 delay(2500)
                             }
@@ -373,6 +485,17 @@ class Repository @Inject constructor(
 
     fun stopOnlineGame() {
         lichessGameJob?.cancel()
+        isOnlineGameActive.set(false)
+        _activeGame.value = LichessGameEvent(null)
+    }
+
+    suspend fun blinkLeds() {
+        try {
+            bluetoothManager.writeMessage(clientToServerMessageProvider.testLeds())
+            eventBus.successEvents.value = SuccessEvent.BlinkLedsSuccess()
+        }catch (e:IOException){
+            eventBus.errorEvents.value = ErrorEvent.BluetoothIOError()
+        }
     }
 
     fun setTargetBluetoothDevice(bluetoothDevice: BluetoothDevice?) {
@@ -387,13 +510,12 @@ class Repository @Inject constructor(
         } catch (e: IOException) {
             isRequestingPgnFiles.set(false)
             _pgnFilesUploadState.value = PgnFileUploadState.NotUploading
-            throw e
+            eventBus.errorEvents.value = ErrorEvent.BluetoothIOError()
         }
     }
 
-    suspend fun blinkLeds(){
-        bluetoothManager.writeMessage(clientToServerMessageProvider.testLeds())
-    }
+    // utility class for separating IOExceptions that ocour from bluetooth and from internet IO within the same block.
+    class BluetoothIOException(cause: java.lang.Exception) : java.lang.Exception(cause)
 
     override fun onPgnFilesSent(messageData: String) {
         if (!isRequestingPgnFiles.get()) {
@@ -407,21 +529,44 @@ class Repository @Inject constructor(
             try {
                 val pgnFiles = gson.fromJson(messageData, PgnFilesResponse::class.java)
                 pgnFiles.files.forEachIndexed { index, file ->
+                    yield()
                     _pgnFilesUploadState.value =
                         PgnFileUploadState.UploadingToLichess(index, pgnFiles.files.size)
                     webManager.importGame(file.pgn)
-                    bluetoothManager.writeMessage(
-                        clientToServerMessageProvider.requestArchivePgnFile(
-                            file.name
+                    try {
+                        bluetoothManager.writeMessage(
+                            clientToServerMessageProvider.requestArchivePgnFile(
+                                file.name
+                            )
                         )
-                    )
+                    } catch (e: IOException) {
+                        throw BluetoothIOException(e)
+                    }
                 }
-            } catch (e: JsonParseException) {
-                Log.w(TAG, "Error parsing pgn files: \n${e.message}\n${messageData}")
-            } catch (e: IOException) {
-                Log.w(TAG, "error uploading pgn files: ${e.message}")
-            } catch (e: AuthorizationException) {
-                Log.w(TAG, "error uploading pgn files: ${e.message}")
+                eventBus.successEvents.value = SuccessEvent.UploadGamesSuccess()
+            } catch (e: Exception) {
+                when (e) {
+                    is NotSignedInException,
+                    is AuthorizationException -> {
+                        Log.w(TAG, "Error uploading pgn files: ${e.message}")
+                        eventBus.errorEvents.value = ErrorEvent.NoLongerAuthorizedError()
+                    }
+                    is GenericNetworkException,
+                    is JsonParseException -> {
+                        Log.w(TAG, "Error uploading pgn files: ${e.message}")
+                        eventBus.errorEvents.value =
+                            ErrorEvent.MiscError("Couldn't upload games.")
+                    }
+                    is TooManyRequestsException -> {
+                        Log.w(TAG, "Error uploading pgn files: ${e.message}")
+                        eventBus.errorEvents.value = ErrorEvent.TooManyRequests(e.timeForValidRequests)
+                    }
+                    is IOException -> {
+                        Log.w(TAG, "Error uploading pgn files: ${e.message}")
+                        eventBus.errorEvents.value = ErrorEvent.InternetIOError()
+                    }
+                    else -> throw e
+                }
             } finally {
                 _pgnFilesUploadState.value = PgnFileUploadState.NotUploading
             }

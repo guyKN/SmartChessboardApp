@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--When the user clicks on the "Test Bluetooth Connection" button, this is the duration of the snackbar that popus up. It must have the exact same duration as the duration of LEDs blinking. -->
+    <integer name="led_test_snackbar_duration">3000</integer>
+</resources>

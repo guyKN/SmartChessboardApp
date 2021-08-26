@@ -4,13 +4,14 @@ import android.content.Context
 import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.JsonParseException
-import com.guykn.smartchessboard2.ErrorEventBus
 import com.guykn.smartchessboard2.network.lichess.LichessApi.UserInfo
 import com.guykn.smartchessboard2.network.lines
 import com.guykn.smartchessboard2.network.oauth2.*
-import com.guykn.smartchessboard2.ui.util.Event
+import com.guykn.smartchessboard2.newui.util.Event
+import com.guykn.smartchessboard2.newui.util.EventWithValue
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.scopes.ServiceScoped
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import net.openid.appauth.AuthState
 import net.openid.appauth.AuthorizationException
@@ -23,6 +24,8 @@ import ru.gildor.coroutines.okhttp.await
 import java.io.IOException
 import javax.inject.Inject
 
+typealias BoolEvent = EventWithValue<Boolean>
+
 @ServiceScoped
 class WebManager @Inject constructor(
     @ApplicationContext context: Context,
@@ -30,7 +33,7 @@ class WebManager @Inject constructor(
     private val lichessApi: LichessApi,
     private val okHttpClient: OkHttpClient,
     private val gson: Gson,
-    private val errorEventBus: ErrorEventBus
+    private val coroutineScope: CoroutineScope
 ) {
     companion object {
         private const val TAG = "MA_WebManager"
@@ -55,14 +58,15 @@ class WebManager @Inject constructor(
     private val _uiAuthState = MutableStateFlow<UiOAuthState>(savedAuthState.currentUiAuthState())
     val uiAuthState = _uiAuthState as StateFlow<UiOAuthState>
 
+    private val _isLoadingOnlineGame: MutableStateFlow<BoolEvent> =
+        MutableStateFlow(BoolEvent(false))
+    val isLoadingOnlineGame: StateFlow<BoolEvent> = _isLoadingOnlineGame
+
     private val authService = AuthorizationService(context)
 
-    // TODO: 6/26/2021 save this value on disk, so that closing and opening the app will keep it.
     // when recieving a 429 http code from the server, we must wait 1 minute until resuming API usage. this variable tracks the time that we are allowed to use the API in.
     private var timeForValidRequests: Long = 0
-    /**
-     * Utility function that
-     */
+
     private inline fun <T> networkCall(block: () -> T): T {
         try {
             checkTooManyRequests()
@@ -77,7 +81,8 @@ class WebManager @Inject constructor(
                     }
                 }
                 // NotSignedInException and TooManyRequestsException don't mean that the internet isn't working, so we don't have to set isInternetWorking to False
-                is NotSignedInException, is TooManyRequestsException -> { }
+                is NotSignedInException, is TooManyRequestsException -> {
+                }
                 is IOException -> {
                     _internetState.value = InternetState.NotConnected
                 }
@@ -132,13 +137,20 @@ class WebManager @Inject constructor(
                 }
             }
             ?: throw IllegalStateException("Either response or exception must be non-null for fetch tokens")
-        }catch (e: Throwable){
+        } catch (e: Throwable) {
             _uiAuthState.value = UiOAuthState.NotAuthorized()
             throw e
         }
     }
 
-    @Throws(AuthorizationException::class, NotSignedInException::class, IOException::class, GenericNetworkException::class)
+    @Throws(
+        AuthorizationException::class,
+        NotSignedInException::class,
+        IOException::class,
+        GenericNetworkException::class,
+        TooManyRequestsException::class,
+        JsonParseException::class
+    )
     suspend fun createBroadcastTournament(
         name: String = "Test",
         description: String = "Test"
@@ -162,6 +174,13 @@ class WebManager @Inject constructor(
         }
     }
 
+    @Throws(
+        AuthorizationException::class,
+        NotSignedInException::class,
+        IOException::class,
+        GenericNetworkException::class,
+        TooManyRequestsException::class
+    )
     suspend fun createBroadcastRound(
         broadcastTournament: LichessApi.BroadcastTournament,
         name: String = "Test"
@@ -236,7 +255,7 @@ class WebManager @Inject constructor(
     suspend fun importGame(pgn: String): LichessApi.ImportedGame = networkCall {
         val authorization: String = formatAuthHeader(getFreshToken())
         val response = lichessApi.importGame(authorization, pgn)
-        when(response.code()){
+        when (response.code()) {
             200 -> {
                 response.body()?.let {
                     return it
@@ -260,12 +279,32 @@ class WebManager @Inject constructor(
                 .url("https://lichess.org/api/stream/event")
                 .header("Authorization", authorization)
                 .build()
-            okHttpClient.newCall(request).await().use { response ->
+
+            val response = try {
+                _isLoadingOnlineGame.value = BoolEvent(true)
+                okHttpClient.newCall(request).await()
+            } finally {
+                coroutineScope.launch {
+                    // Because it takes a few milliseconds for lichess to send the information
+                    // about current games through the stream, we don't know for sure if the user if
+                    // the user is in the middle of a game or not immidiatly when the connection is created.
+                    // Since it will certainly take less than 1 second for current games to be sent,
+                    // we wait 1 second before setting isLoadingOnlineGame to false so that nothing is missed.
+                    delay(1000)
+                    _isLoadingOnlineGame.value = BoolEvent(false)
+                }
+            }
+
+
+            response.use {
                 when (val code = response.code) {
                     200 -> {
+                        Log.d(TAG, "starting to read lines")
                         _internetState.value = InternetState.Connected
-                        response.body?.lines?.collect {
-                            val event = gson.fromJson(it, LichessApi.GameEvent::class.java)
+                        response.body?.lines?.collect { line ->
+                            Log.d(TAG, "read line: $line")
+                            val event = gson.fromJson(line, LichessApi.GameEvent::class.java)
+                            Log.d(TAG, "parsed json: $event")
                             emit(event)
                         }
                             ?: throw GenericNetworkException("Received http code 200, but no response body. ")
@@ -290,12 +329,59 @@ class WebManager @Inject constructor(
         }
     }
 
-    // todo: make sure this closes the connecting after finding 1 game
-    suspend fun awaitGameStart(): LichessApi.Game? {
-        return try {
-            gameStartStream.first()
-        } catch (e: NoSuchElementException) {
-            null
+    suspend fun awaitGameStart(): LichessApi.Game? = withContext(Dispatchers.IO) {
+        networkCall {
+            val authorization: String = formatAuthHeader(getFreshToken())
+            val request = Request.Builder()
+                .url("https://lichess.org/api/stream/event")
+                .header("Authorization", authorization)
+                .build()
+
+            val response = try {
+                _isLoadingOnlineGame.value = BoolEvent(true)
+                okHttpClient.newCall(request).await()
+            } finally {
+                coroutineScope.launch {
+                    // Because it takes a few milliseconds for lichess to send the information
+                    // about current games through the stream, we don't know for sure if the user if
+                    // the user is in the middle of a game or not immidiatly when the connection is created.
+                    // Since it will certainly take less than 1 second for current games to be sent,
+                    // we wait 1 second before setting isLoadingOnlineGame to false so that nothing is missed.
+                    delay(1000)
+                    _isLoadingOnlineGame.value = BoolEvent(false)
+                }
+            }
+
+            response.use {
+                when (val code = response.code) {
+                    200 -> {
+                        Log.d(TAG, "starting to read lines")
+                        _internetState.value = InternetState.Connected
+                        val body = response.body ?: throw GenericNetworkException("Received http code 200, but no response body. ")
+
+                        return@withContext body.lines.map<String, LichessApi.GameEvent?> { line ->
+                            Log.d(TAG, "read line: $line")
+                            val event = gson.fromJson(line, LichessApi.GameEvent::class.java)
+                            Log.d(TAG, "parsed json: $event")
+                            event
+
+                        }.transform { event ->
+                            if (event?.type == "gameStart" && event.game != null) {
+                                emit(event.game)
+                            }
+                        }.firstOrNull()
+                    }
+                    401 -> {
+                        Log.w(TAG, "Authorization is invalid or has expired, signing out.")
+                        signOut()
+                        throw NotSignedInException("Error streaming game events: Received http code 401 unauthorized. ")
+                    }
+                    429 -> on429httpStatus()
+                    else -> {
+                        throw GenericNetworkException("Lichess returned http error code: $code.")
+                    }
+                }
+            }
         }
     }
 
@@ -334,7 +420,8 @@ class WebManager @Inject constructor(
                                             throw LichessApi.InvalidMessageException("field 'state' must be non-null for type=='gameFull'")
                                         }
                                         val gameState = stateLine.toGameState(
-                                            playerColor = playerColor ?: throw LichessApi.InvalidMessageException("User tried to playe in a game he does not own."),
+                                            playerColor = playerColor
+                                                ?: throw LichessApi.InvalidMessageException("User tried to player in a game he does not own."),
                                             gameId = game.id
                                         )
                                         emit(gameState)
@@ -344,7 +431,8 @@ class WebManager @Inject constructor(
                                     }
                                     "gameState" -> {
                                         val gameState = gameStreamLine.toGameState(
-                                            playerColor = playerColor ?: throw LichessApi.InvalidMessageException("'gameState' message sent before 'gameFull'"),
+                                            playerColor = playerColor
+                                                ?: throw LichessApi.InvalidMessageException("'gameState' message sent before 'gameFull'"),
                                             gameId = game.id
                                         )
                                         emit(gameState)
@@ -376,8 +464,6 @@ class WebManager @Inject constructor(
         }
     }
 
-
-    // TODO: 5/12/2021 Make this function sign out using oAuth2 sign out protocol
     fun signOut() {
         savedAuthState.clear()
         _uiAuthState.value = UiOAuthState.NotAuthorized()
@@ -396,13 +482,13 @@ class WebManager @Inject constructor(
     private fun checkTooManyRequests() {
         if (System.currentTimeMillis() < timeForValidRequests) {
             _internetState.value = InternetState.TooManyRequests(timeForValidRequests)
-            throw TooManyRequestsException("Lichess API is overloaded, please try again later. ")
+            throw TooManyRequestsException(timeForValidRequests)
         }
     }
 
     private fun on429httpStatus(): Nothing {
         timeForValidRequests = System.currentTimeMillis() + TOO_MANY_REQUEST_DELAY
         _internetState.value = InternetState.TooManyRequests(timeForValidRequests)
-        throw TooManyRequestsException("Lichess API is overloaded, please try again later. ")
+        throw TooManyRequestsException(timeForValidRequests)
     }
 }

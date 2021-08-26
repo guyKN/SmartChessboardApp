@@ -52,7 +52,7 @@ class ChessBoardModel @Inject constructor(val gson: Gson) {
         CONNECTED
     }
 
-    private val _bluetoothState = MutableStateFlow(BluetoothState.DISCONNECTED)
+    private val _bluetoothState = MutableStateFlow(BluetoothState.CONNECTING)
     val bluetoothState: StateFlow<BluetoothState> = _bluetoothState
 
     private val _gameActive = MutableStateFlow<Boolean?>(null)

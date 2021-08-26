@@ -1,4 +1,4 @@
-package com.guykn.smartchessboard2.ui
+package com.guykn.smartchessboard2.newui
 
 import android.bluetooth.BluetoothDevice
 import android.companion.CompanionDeviceManager
@@ -11,7 +11,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.commit
 import com.guykn.smartchessboard2.R
 import com.guykn.smartchessboard2.bluetooth.companiondevice.CompanionDeviceConnector
-import com.guykn.smartchessboard2.newui.MainFragment
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
