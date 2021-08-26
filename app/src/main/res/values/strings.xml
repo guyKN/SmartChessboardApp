@@ -20,7 +20,7 @@
     <string name="menu_upload_games">View Saved Games</string>
     <string name="menu_learning_mode">Learning Mode</string>
     <string name="menu_learning_mode_description">Show all legal moves when picking up a piece</string>
-    <string name="menu_test_leds_description">LEDs will turn on whether there is a piece</string>
+    <string name="menu_test_leds_description">LEDs will turn on wherever there is a piece</string>
     <string name="cancel">cancel</string>
     <string name="menu_2_player_game">Play 2 Player Game</string>
 
