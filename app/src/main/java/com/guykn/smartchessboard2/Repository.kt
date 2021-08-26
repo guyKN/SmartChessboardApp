@@ -143,7 +143,8 @@ class Repository @Inject constructor(
                                         break
                                     }
                                     is TooManyRequestsException -> {
-                                        eventBus.errorEvents.value = ErrorEvent.TooManyRequests(e.timeForValidRequests)
+                                        eventBus.errorEvents.value =
+                                            ErrorEvent.TooManyRequests(e.timeForValidRequests)
                                         stopBroadcast()
                                         break
                                     }
@@ -216,7 +217,8 @@ class Repository @Inject constructor(
                                             TAG,
                                             "Too many request sent to lichess, please wait and try again later."
                                         )
-                                        eventBus.errorEvents.value = ErrorEvent.TooManyRequests(e.timeForValidRequests)
+                                        eventBus.errorEvents.value =
+                                            ErrorEvent.TooManyRequests(e.timeForValidRequests)
                                         stopOnlineGame()
                                         break
                                     }
@@ -370,7 +372,8 @@ class Repository @Inject constructor(
                                 TAG,
                                 "Too many request sent to lichess, please wait and try again later."
                             )
-                            eventBus.errorEvents.value = ErrorEvent.TooManyRequests(e.timeForValidRequests)
+                            eventBus.errorEvents.value =
+                                ErrorEvent.TooManyRequests(e.timeForValidRequests)
                             return null
                         }
                         is IOException -> {
@@ -397,6 +400,17 @@ class Repository @Inject constructor(
             Log.w(TAG, "Error writing settings: ${e.message}")
             eventBus.errorEvents.value = ErrorEvent.BluetoothIOError()
         }
+    }
+
+    suspend fun startTwoPlayerGame() {
+        startOfflineGame(
+            GameStartRequest(
+                enableEngine = false,
+                // engineColor and engineLevel don't matter, but they must be sent as part of a gameStartRequest, so fill them in with arbitrary values.
+                engineColor = "black",
+                engineLevel = 5
+            )
+        )
     }
 
     suspend fun startOfflineGame(gameStartRequest: GameStartRequest) {
@@ -451,7 +465,10 @@ class Repository @Inject constructor(
                             }
                             is NotSignedInException,
                             is AuthorizationException -> {
-                                Log.w(TAG, "Error ocoured with authorization to lichess: ${e.message}")
+                                Log.w(
+                                    TAG,
+                                    "Error ocoured with authorization to lichess: ${e.message}"
+                                )
                                 eventBus.errorEvents.value = ErrorEvent.NoLongerAuthorizedError()
                                 shouldStop = true
                             }
@@ -459,7 +476,8 @@ class Repository @Inject constructor(
                             is JsonParseException,
                             is GenericNetworkException -> {
                                 Log.w(TAG, "Invalid data received from lichess: ${e.message}")
-                                eventBus.errorEvents.value = ErrorEvent.MiscError("Error playing online game")
+                                eventBus.errorEvents.value =
+                                    ErrorEvent.MiscError("Error playing online game")
                                 shouldStop = true
                             }
                             is IOException -> {
@@ -493,7 +511,7 @@ class Repository @Inject constructor(
         try {
             bluetoothManager.writeMessage(clientToServerMessageProvider.testLeds())
             eventBus.successEvents.value = SuccessEvent.BlinkLedsSuccess()
-        }catch (e:IOException){
+        } catch (e: IOException) {
             eventBus.errorEvents.value = ErrorEvent.BluetoothIOError()
         }
     }
@@ -559,7 +577,8 @@ class Repository @Inject constructor(
                     }
                     is TooManyRequestsException -> {
                         Log.w(TAG, "Error uploading pgn files: ${e.message}")
-                        eventBus.errorEvents.value = ErrorEvent.TooManyRequests(e.timeForValidRequests)
+                        eventBus.errorEvents.value =
+                            ErrorEvent.TooManyRequests(e.timeForValidRequests)
                     }
                     is IOException -> {
                         Log.w(TAG, "Error uploading pgn files: ${e.message}")

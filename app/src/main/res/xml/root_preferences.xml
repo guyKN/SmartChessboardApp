@@ -6,6 +6,9 @@
         app:key="play_against_ai"
         app:title="@string/menu_play_against_computer"/>
     <Preference
+        app:key="two_player_game"
+        app:title="@string/menu_2_player_game"/>
+    <Preference
         app:key="play_online" />
     <Preference
         app:key="start_broadcast"

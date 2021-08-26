@@ -50,6 +50,7 @@ class MainFragment : PreferenceFragmentCompat() {
 
     private lateinit var signInInfo: Preference
     private lateinit var playAgainstAiButton: Preference
+    private lateinit var twoPlayerGameButton: Preference
     private lateinit var playOnlineButton: Preference
     private lateinit var startBroadcastButton: Preference
     private lateinit var uploadGamesButton: Preference
@@ -61,6 +62,7 @@ class MainFragment : PreferenceFragmentCompat() {
     private var uploadingPgnDialog: ProgressDialog? = null
 
     private lateinit var authService: AuthorizationService
+
 
     private val isAwaitingLaunchLichessHomePage = AtomicBoolean(false)
 
@@ -122,6 +124,7 @@ class MainFragment : PreferenceFragmentCompat() {
         setPreferencesFromResource(R.xml.root_preferences, rootKey)
         signInInfo = findPreference("sign_in_info")!!
         playAgainstAiButton = findPreference("play_against_ai")!!
+        twoPlayerGameButton = findPreference("two_player_game")!!
         playOnlineButton = findPreference("play_online")!!
         startBroadcastButton = findPreference("start_broadcast")!!
         uploadGamesButton = findPreference("upload_games")!!
@@ -148,6 +151,11 @@ class MainFragment : PreferenceFragmentCompat() {
         playAgainstAiButton.setOnPreferenceClickListener {
             StartOfflineGameDialog()
                 .show(parentFragmentManager, "start_offline_game")
+            true
+        }
+
+        twoPlayerGameButton.setOnPreferenceClickListener{
+            mainViewModel.startTwoPlayerGame()
             true
         }
 
@@ -206,7 +214,6 @@ class MainFragment : PreferenceFragmentCompat() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
 
         mainViewModel.activeOnlineGame.observe(viewLifecycleOwner) { lichessGameEvent ->
             if (lichessGameEvent?.receive() == true && lichessGameEvent.value != null) {
@@ -368,7 +375,7 @@ class MainFragment : PreferenceFragmentCompat() {
                 is SuccessEvent.BlinkLedsSuccess -> {
                     Snackbar.make(
                         view,
-                        "Leds are now blinking on the chessboard",
+                        "Chessboard LEDs are now on",
                         resources.getInteger(R.integer.led_test_snackbar_duration)
                     )
                         .show()
@@ -400,7 +407,7 @@ class MainFragment : PreferenceFragmentCompat() {
                 is SuccessEvent.StartOfflineGameSuccess -> {
                     Snackbar.make(
                         view,
-                        "Started Game Against Computer",
+                        "Game Started",
                         Snackbar.LENGTH_SHORT
                     )
                         .show()

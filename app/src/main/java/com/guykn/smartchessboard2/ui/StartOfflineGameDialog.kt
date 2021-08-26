@@ -107,17 +107,18 @@ class StartOfflineGameDialog : DialogFragment() {
      * The ui allows picking a number from 1 to 8 as a difficulty, but the actual difficulty on the chessboard is from 1 to 20, so we must convert it.
      */
     private fun adjustEngineDifficulty(uiEngineDifficulty: Int): Int {
-        return when (uiEngineDifficulty) {
-            1 -> 1
-            2 -> 4
-            3 -> 7
-            4 -> 10
-            5 -> 13
-            6 -> 16
-            7 -> 18
-            8 -> 20
-            else -> error("uiEngineDifficulty must be from 1 to 8")
-        }
+        return uiEngineDifficulty
+//        return when (uiEngineDifficulty) {
+//            1 -> 1
+//            2 -> 4
+//            3 -> 7
+//            4 -> 10
+//            5 -> 13
+//            6 -> 16
+//            7 -> 18
+//            8 -> 20
+//            else -> error("uiEngineDifficulty must be from 1 to 8")
+//        }
     }
 
 
