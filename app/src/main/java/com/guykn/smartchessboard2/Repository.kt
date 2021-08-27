@@ -273,17 +273,6 @@ class Repository @Inject constructor(
                 }
             }
         }
-
-        // When the physical chessboard starts a different game while an online game is active, cancel the online game.
-        coroutineScope.launch {
-            chessBoardModel.gameInfo.collect { physicalBoardGameType ->
-                val lichessGameId = activeGame.value.value?.id
-                if (lichessGameId != null && lichessGameId != physicalBoardGameType?.gameId) {
-                    Log.d(TAG, "canceling online game because another game started ")
-                    stopOnlineGame()
-                }
-            }
-        }
     }
 
 
@@ -419,6 +408,7 @@ class Repository @Inject constructor(
     }
 
     suspend fun startOfflineGame(gameStartRequest: GameStartRequest) {
+        stopOnlineGame()
         try {
             bluetoothManager.writeMessage(
                 clientToServerMessageProvider.startNormalGame(gameStartRequest)
@@ -430,7 +420,7 @@ class Repository @Inject constructor(
         }
     }
 
-    fun startOnlineGame(autoRestart: Boolean = true) {
+    fun startOnlineGame() {
         if (isOnlineGameActive.get()) {
             Log.w(TAG, "tried to stream game while game was already active.")
             return
@@ -451,9 +441,7 @@ class Repository @Inject constructor(
                                 _lichessGameState.value = gameState
                             }
                             // if the flow completes without throwing an exception, then the game has ended.
-                            if (!autoRestart){
-                                shouldStop = true
-                            }
+                            _activeGame.value = LichessGameEvent(null)
                         } ?: kotlin.run {
                             // awaitGameStart() returned null. No game was found.
                             Log.w(TAG, "No game found")

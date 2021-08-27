@@ -64,7 +64,7 @@ class MainFragment : PreferenceFragmentCompat() {
     private lateinit var authService: AuthorizationService
 
 
-    private val isAwaitingLaunchLichessHomePage = AtomicBoolean(false)
+    private val isAwaitingLaunchLichess = AtomicBoolean(false)
 
     private var signInCallback: (()->Unit)? = null
 
@@ -207,8 +207,8 @@ class MainFragment : PreferenceFragmentCompat() {
         mainViewModel.startOnlineGame()
         mainViewModel.activeOnlineGame.value?.value?.let { lichessGame ->
             openCustomChromeTab(requireContext(), lichessGame.url)
-            isAwaitingLaunchLichessHomePage.set(false)
-        } ?: isAwaitingLaunchLichessHomePage.set(true)
+            isAwaitingLaunchLichess.set(false)
+        } ?: isAwaitingLaunchLichess.set(true)
     }
 
 
@@ -220,9 +220,9 @@ class MainFragment : PreferenceFragmentCompat() {
         super.onViewCreated(view, savedInstanceState)
 
         mainViewModel.activeOnlineGame.observe(viewLifecycleOwner) { lichessGameEvent ->
-            if (lichessGameEvent?.receive() == true && lichessGameEvent.value != null) {
+            if (lichessGameEvent?.receive() == true && lichessGameEvent.value != null && isAwaitingLaunchLichess.get()) {
                 openCustomChromeTab(requireContext(), lichessGameEvent.value.url)
-                isAwaitingLaunchLichessHomePage.set(false)
+                isAwaitingLaunchLichess.set(false)
             }
         }
 
@@ -233,8 +233,8 @@ class MainFragment : PreferenceFragmentCompat() {
         }
 
         mainViewModel.isLoadingOnlineGame.observe(viewLifecycleOwner) { isLoadingEvent ->
-            if (isLoadingEvent?.receive() == true && isAwaitingLaunchLichessHomePage.get() && !isLoadingEvent.value) {
-                isAwaitingLaunchLichessHomePage.set(false)
+            if (isLoadingEvent?.receive() == true && isAwaitingLaunchLichess.get() && !isLoadingEvent.value) {
+                isAwaitingLaunchLichess.set(false)
                 openCustomChromeTab(requireContext(), "https://lichess.org/")
             }
         }
