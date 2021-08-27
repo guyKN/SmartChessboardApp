@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Smart Chessboard 2</string>
+    <string name="app_name">Smart Chessboard</string>
     <string name="service_description">Connects with the Bluetooth Chessboard and allows online play.</string>
     <string name="not_signed_in">Not Signed In</string>
     <string name="sign_in">Sign In</string>
