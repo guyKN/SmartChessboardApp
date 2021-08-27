@@ -452,6 +452,9 @@ class WebManager @Inject constructor(
                             ?: throw GenericNetworkException("Received http code 200, but no response body. ")
 
                     }
+                    400 ->{
+                        throw LichessApi.InvalidGameException("Recieved http code 400 when streaming game. Most likely because user tried to play an illegal game mode or time control. ")
+                    }
                     401 -> {
                         Log.w(TAG, "Authorization is invalid or has expired, signing out.")
                         signOut()

@@ -102,7 +102,6 @@ interface LichessApi {
         fun isValidGame(): Boolean {
             check(type == "gameFull") { "May only check if a game is valid for line with type=='gameFull'" }
             return variant?.key == "standard"
-                    && (speed == "classical" || speed == "rapid" || speed == "correspondence" || speed == "unlimited")
                     && initialFen == "startpos"
         }
 
