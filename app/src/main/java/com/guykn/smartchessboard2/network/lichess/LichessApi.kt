@@ -1,5 +1,6 @@
 package com.guykn.smartchessboard2.network.lichess
 
+import com.guykn.smartchessboard2.countOccurrences
 import com.guykn.smartchessboard2.network.oauth2.LICHESS_BASE_URL
 import retrofit2.Response
 import retrofit2.http.*
@@ -135,6 +136,15 @@ interface LichessApi {
     ) {
         val isGameOver
             get() = winner != null
+        val numMoves: Int
+        get() {
+
+            return if (moves == ""){
+                0
+            }else{
+                moves.countOccurrences(' ') + 1
+            }
+        }
     }
 
 }

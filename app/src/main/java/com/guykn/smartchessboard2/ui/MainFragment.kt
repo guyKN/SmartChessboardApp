@@ -265,7 +265,7 @@ class MainFragment : PreferenceFragmentCompat() {
                 playOnlineButton.summary = ""
             }else{
                 playOnlineButton.title = "Online Game In Progress"
-                playOnlineButton.summary = "Click here to resume"
+                playOnlineButton.summary = "Click here to view"
             }
         }
 

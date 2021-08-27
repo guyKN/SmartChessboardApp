@@ -21,6 +21,8 @@ class MainService : LifecycleService() {
 
     @Inject
     lateinit var repository: Repository
+    @Inject
+    lateinit var notificationPlayer: NotificationPlayer
 
     inner class MainServiceBinder : Binder() {
         val service: MainService

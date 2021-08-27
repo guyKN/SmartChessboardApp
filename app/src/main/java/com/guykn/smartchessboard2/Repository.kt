@@ -32,7 +32,7 @@ import javax.inject.Inject
 // todo: replace destroy callbacks with lifecycle-aware components
 // TODO: 6/30/2021 Make sure everything is closed properly when the service is destroyed
 // todo: make sure that every exception that is thrown has a place to be caught. 
-
+// TODO: 8/27/2021 extract all stateFlows outisde of the repository itself, since it sometimes causes akward moments where other classes need a refrence to the repository
 
 typealias BroadcastEvent = EventWithValue<BroadcastRound?>
 typealias LichessGameEvent = EventWithValue<LichessApi.Game?>
