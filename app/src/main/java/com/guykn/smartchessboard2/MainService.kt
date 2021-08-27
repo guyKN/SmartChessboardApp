@@ -23,6 +23,8 @@ class MainService : LifecycleService() {
     lateinit var repository: Repository
     @Inject
     lateinit var notificationPlayer: NotificationPlayer
+    @Inject
+    lateinit var wakeLockManager: WakeLockManager
 
     inner class MainServiceBinder : Binder() {
         val service: MainService
@@ -42,6 +44,7 @@ class MainService : LifecycleService() {
         Log.d(TAG, "onCreate() called")
         super.onCreate()
         createForegroundNotification()
+        wakeLockManager.start()
     }
 
     private fun createForegroundNotification() {
@@ -73,6 +76,7 @@ class MainService : LifecycleService() {
     override fun onDestroy() {
         super.onDestroy()
         repository.destroy()
+        wakeLockManager.destroy()
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {

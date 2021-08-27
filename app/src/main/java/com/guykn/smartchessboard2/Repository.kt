@@ -430,18 +430,18 @@ class Repository @Inject constructor(
         }
     }
 
-    fun startOnlineGame() {
+    fun startOnlineGame(autoRestart: Boolean = true) {
         if (isOnlineGameActive.get()) {
             Log.w(TAG, "tried to stream game while game was already active.")
             return
         }
-        stopBroadcast()
         lichessGameJob = coroutineScope.launch {
             isOnlineGameActive.set(true)
             var shouldStop = false
             try {
                 while (!shouldStop) {
                     yield()
+                    stopBroadcast()
                     try {
                         webManager.awaitGameStart()?.let { game ->
                             _activeGame.value = LichessGameEvent(game)
@@ -450,8 +450,10 @@ class Repository @Inject constructor(
                                 yield()
                                 _lichessGameState.value = gameState
                             }
-                            // if the flow completes without throwing an exception, then the game has ended and we should stop observing.
-                            shouldStop = true
+                            // if the flow completes without throwing an exception, then the game has ended.
+                            if (!autoRestart){
+                                shouldStop = true
+                            }
                         } ?: kotlin.run {
                             // awaitGameStart() returned null. No game was found.
                             Log.w(TAG, "No game found")
