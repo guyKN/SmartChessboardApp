@@ -79,7 +79,7 @@ class MainFragment : PreferenceFragmentCompat() {
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         signInCallback = {
-            mainViewModel.startOnlineGame()
+            startAndOpenOnlineGame()
         }
         continueLichessLogin(result)
     }
@@ -163,11 +163,7 @@ class MainFragment : PreferenceFragmentCompat() {
             if (!mainViewModel.isSignedIn()) {
                 lichessAuthLauncherWithStartOnlineGame.launch(authService.getLichessAuthIntent())
             } else {
-                mainViewModel.startOnlineGame()
-                mainViewModel.activeOnlineGame.value?.value?.let { lichessGame ->
-                    openCustomChromeTab(requireContext(), lichessGame.url)
-                    isAwaitingLaunchLichessHomePage.set(false)
-                } ?: isAwaitingLaunchLichessHomePage.set(true)
+                startAndOpenOnlineGame()
             }
             true
         }
@@ -205,6 +201,14 @@ class MainFragment : PreferenceFragmentCompat() {
             mainViewModel.blinkLeds()
             true
         }
+    }
+
+    private fun startAndOpenOnlineGame() {
+        mainViewModel.startOnlineGame()
+        mainViewModel.activeOnlineGame.value?.value?.let { lichessGame ->
+            openCustomChromeTab(requireContext(), lichessGame.url)
+            isAwaitingLaunchLichessHomePage.set(false)
+        } ?: isAwaitingLaunchLichessHomePage.set(true)
     }
 
 
@@ -547,7 +551,6 @@ class MainFragment : PreferenceFragmentCompat() {
             }
             else -> mainViewModel.uploadPgn()
         }
-        mainViewModel.uploadPgn()
     }
 
     private fun openLichessSavedGames() {
