@@ -23,16 +23,17 @@ import com.guykn.smartchessboard2.Repository.PgnFileUploadState.*
 import com.guykn.smartchessboard2.bluetooth.ChessBoardModel.BluetoothState.*
 import com.guykn.smartchessboard2.bluetooth.ChessBoardSettings
 import com.guykn.smartchessboard2.bluetooth.companiondevice.CompanionDeviceConnector
+import com.guykn.smartchessboard2.combineLiveDataPairs
 import com.guykn.smartchessboard2.network.lichess.WebManager.InternetState.*
 import com.guykn.smartchessboard2.network.lichess.WebManager.UiOAuthState
 import com.guykn.smartchessboard2.network.oauth2.LICHESS_BASE_URL
 import com.guykn.smartchessboard2.network.oauth2.getLichessAuthIntent
+import com.guykn.smartchessboard2.observeMultiple
 import com.guykn.smartchessboard2.openCustomChromeTab
 import dagger.hilt.android.AndroidEntryPoint
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationResponse
 import net.openid.appauth.AuthorizationService
-import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
 // todo: encapsulate more data into repository and viewmodel, instead of reaching into fields of complex data classes in UI layer
@@ -204,28 +205,13 @@ class MainFragment : PreferenceFragmentCompat() {
     }
 
     private fun startAndOpenOnlineGame() {
-        mainViewModel.startOnlineGame()
-        val lichessGame = mainViewModel.activeOnlineGame.value?.value
-        val isOnlineGameActive = mainViewModel.isOnlineGameActive.value
-        val isOnlineGameOver = mainViewModel.isOnlineGameOver.value
-
-
-        if (isOnlineGameActive == true && lichessGame != null) {
-            openCustomChromeTab(requireContext(), lichessGame.url)
-            mainViewModel.isAwaitingLaunchLichess.value = false
-        }else if (isOnlineGameOver == true){
+        if (mainViewModel.isOnlineGameOver.value == true){
+            // the online game has ended and no new online game has started, so we can open lichess right away.
             openCustomChromeTab(requireContext(), LICHESS_BASE_URL)
-            mainViewModel.isAwaitingLaunchLichess.value = false
-        }else{
+        }else {
+            mainViewModel.startOnlineGame()
             mainViewModel.isAwaitingLaunchLichess.value = true
         }
-
-
-//        lichessGame?.let { lichessGame ->
-//
-//            openCustomChromeTab(requireContext(), lichessGame.url)
-//            isAwaitingLaunchLichess.set(false)
-//        } ?: isAwaitingLaunchLichess.set(true)
     }
 
 
@@ -236,23 +222,31 @@ class MainFragment : PreferenceFragmentCompat() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        mainViewModel.activeOnlineGame.observe(viewLifecycleOwner) { lichessGameEvent ->
-            if (lichessGameEvent?.receive() == true && lichessGameEvent.value != null && isAwaitingLaunchLichess.get()) {
-                openCustomChromeTab(requireContext(), lichessGameEvent.value.url)
-                isAwaitingLaunchLichess.set(false)
+        // If looking for an online game, and an active online game already exists, then open it.
+        observeMultiple(
+            viewLifecycleOwner,
+            mainViewModel.activeOnlineGame,
+            mainViewModel.isAwaitingLaunchLichess,
+            mainViewModel.isOnlineGameActive
+        ) { activeOnlineGame, isAwaitingLaunchLichess, isOnlineGameActive ->
+            if (isAwaitingLaunchLichess == true && activeOnlineGame?.value != null && isOnlineGameActive == true) {
+                openCustomChromeTab(requireContext(), activeOnlineGame.value.url)
+                mainViewModel.isAwaitingLaunchLichess.value = false
+            }
+        }
+
+        // If done looking for an online game and none was found, open the lichess homepage.
+
+        mainViewModel.launchLichessHomepageEvent.observe(viewLifecycleOwner){ event ->
+            if (event?.receive() == true && mainViewModel.isAwaitingLaunchLichess.value == true){
+                openCustomChromeTab(requireContext(), LICHESS_BASE_URL)
+                mainViewModel.isAwaitingLaunchLichess.value = false
             }
         }
 
         mainViewModel.broadcastRound.observe(viewLifecycleOwner) { broadcastEvent ->
             if (broadcastEvent?.receive() == true && broadcastEvent.value != null) {
                 openCustomChromeTab(requireContext(), broadcastEvent.value.url)
-            }
-        }
-
-        mainViewModel.isLoadingOnlineGame.observe(viewLifecycleOwner) { isLoadingEvent ->
-            if (isLoadingEvent?.receive() == true && isAwaitingLaunchLichess.get() && !isLoadingEvent.value) {
-                isAwaitingLaunchLichess.set(false)
-                openCustomChromeTab(requireContext(), "https://lichess.org/")
             }
         }
 
@@ -522,10 +516,10 @@ class MainFragment : PreferenceFragmentCompat() {
             }
         }
 
-        mainViewModel.isLoadingOnlineGame.observe(viewLifecycleOwner) { isLoading ->
+        mainViewModel.isAwaitingLaunchLichess.observe(viewLifecycleOwner) { isLoading ->
             loadingBroadcastDialog?.dismiss()
             loadingBroadcastDialog = null
-            if (isLoading?.value == true) {
+            if (isLoading == true) {
                 loadingBroadcastDialog = ProgressDialog.show(
                     requireContext(),
                     null,
@@ -556,8 +550,8 @@ class MainFragment : PreferenceFragmentCompat() {
         }
 
         // always observe the MediatorLiveData, so that it is kept up to date even when using getValue()
-        mainViewModel.isOnlineGameActive.observe(viewLifecycleOwner){}
-        mainViewModel.isOnlineGameOver.observe(viewLifecycleOwner){}
+        mainViewModel.isOnlineGameActive.observe(viewLifecycleOwner) {}
+        mainViewModel.isOnlineGameOver.observe(viewLifecycleOwner) {}
 
     }
 

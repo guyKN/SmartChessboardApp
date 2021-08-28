@@ -119,7 +119,7 @@ interface LichessApi {
                 gameId = gameId,
                 clientColor = playerColor,
                 moves = moves ?: throw InvalidMessageException("Moves must be non-null for when type=='gameState'"),
-                winner = if (status == "draw") "draw" else winner
+                winner = if (status == "draw" || status == "aborted") "draw" else winner
             )
         }
     }

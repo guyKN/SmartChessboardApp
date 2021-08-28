@@ -11,7 +11,9 @@ import com.guykn.smartchessboard2.network.lichess.BoolEvent
 import com.guykn.smartchessboard2.network.lichess.LichessApi
 import com.guykn.smartchessboard2.network.lichess.WebManager
 import com.guykn.smartchessboard2.network.lichess.WebManager.UiOAuthState
+import com.guykn.smartchessboard2.ui.util.Event
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationResponse
@@ -19,6 +21,11 @@ import javax.inject.Inject
 
 @HiltViewModel
 class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) : ViewModel() {
+
+    companion object{
+        // When searching for a game on lichess, there's no way to know when no game was found. We wait this many milliseconds until assuming there is no game and opening the home page of liches.
+        private const val DELAY_OPEN_LICHESS_HOMEPAGE: Long = 2000
+    }
 
     val errorEvents: LiveData<ErrorEvent?> =
         serviceConnector.copyLiveData { repository -> repository.eventBus.errorEvents }
@@ -69,11 +76,6 @@ class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) 
     val isLoadingOnlineGame: LiveData<BoolEvent> =
         serviceConnector.copyLiveData { repository -> repository.isLoadingOnlineGame }
 
-//    val isOnlineGameActive : LiveData<BoolEvent> =
-//        serviceConnector.copyLiveData { repository -> repository.isOnlineGamActive }
-//
-//    val isOnlineGameOver : LiveData<BoolEvent> =
-//        serviceConnector.copyLiveData { repository -> repository.isGameOver }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -90,7 +92,6 @@ class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) 
     val isOnlineGameOver = combineLiveData(activeOnlineGame, onlineGameState){gameEvent, gameState ->
         gameEvent?.value != null && (gameState?.isGameOver == true)
     }
-
 
     private val _isWriteSettingsLoading = MutableLiveData<Boolean>(false)
     val isWriteSettingsLoading: LiveData<Boolean> = _isWriteSettingsLoading
@@ -143,6 +144,9 @@ class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) 
     }
 
     val isAwaitingLaunchLichess: MutableLiveData<Boolean> = MutableLiveData(false)
+
+    private val _launchLichessHomepageEvent: MutableLiveData<Event> = MutableLiveData()
+    val launchLichessHomepageEvent: LiveData<Event> = _launchLichessHomepageEvent
 
     fun postErrorEvent(error: ErrorEvent) {
         viewModelScope.launch {
@@ -218,6 +222,11 @@ class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) 
         viewModelScope.launch {
             val repository = serviceConnector.awaitConnected()
             repository.startOnlineGame()
+        }
+
+        viewModelScope.launch {
+            delay(DELAY_OPEN_LICHESS_HOMEPAGE)
+            _launchLichessHomepageEvent.value = Event()
         }
     }
 

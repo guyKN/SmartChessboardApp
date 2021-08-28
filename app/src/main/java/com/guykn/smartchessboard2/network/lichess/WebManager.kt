@@ -60,7 +60,17 @@ class WebManager @Inject constructor(
 
     private val _isLoadingOnlineGame: MutableStateFlow<BoolEvent> =
         MutableStateFlow(BoolEvent(false))
+
     val isLoadingOnlineGame: StateFlow<BoolEvent> = _isLoadingOnlineGame
+
+    init {
+        coroutineScope.launch {
+            isLoadingOnlineGame.collect {
+                Log.d(TAG, "isLoadingOnlineGame collected: $it")
+            }
+        }
+    }
+
 
     private val authService = AuthorizationService(context)
 

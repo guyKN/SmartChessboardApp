@@ -1,5 +1,6 @@
 package com.guykn.smartchessboard2
 
+import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MediatorLiveData
 import androidx.lifecycle.Observer
@@ -27,8 +28,8 @@ private class CombinedLiveData<T, K, S>(
     private val combine: (data1: T?, data2: K?) -> S
 ) : MediatorLiveData<S>() {
 
-    private var data1: T? = null
-    private var data2: K? = null
+    private var data1: T? = source1.value
+    private var data2: K? = source2.value
 
     init {
         super.addSource(source1) {
@@ -59,4 +60,64 @@ fun <T, K, S> combineLiveData(
 fun <T, K> combineLiveDataPairs(
     source1: LiveData<T>,
     source2: LiveData<K>
-    ): LiveData<Pair<T?, K?>> = combineLiveData(source1, source2){v1, v2->Pair(v1, v2)}
+): LiveData<Pair<T?, K?>> = combineLiveData(source1, source2) { v1, v2 -> Pair(v1, v2) }
+
+fun <T1, T2> observeMultiple(
+    lifecycleOwner: LifecycleOwner,
+    source1: LiveData<T1>,
+    source2: LiveData<T2>,
+    observer: (T1?, T2?) -> Unit
+) {
+    var value1: T1? = source1.value
+    var value2: T2? = source2.value
+
+    observer(value1, value2)
+
+    source1.observe(lifecycleOwner) {
+        if (it != value1) {
+            value1 = it
+            observer(value1, value2)
+        }
+    }
+    source2.observe(lifecycleOwner) {
+        if (it != value2) {
+            value2 = it
+            observer(value1, value2)
+        }
+    }
+}
+
+fun <T1, T2, T3> observeMultiple(
+    lifecycleOwner: LifecycleOwner,
+    source1: LiveData<T1>,
+    source2: LiveData<T2>,
+    source3: LiveData<T3>,
+    observer: (T1?, T2?, T3?) -> Unit
+) {
+    var value1: T1? = source1.value
+    var value2: T2? = source2.value
+    var value3: T3? = source3.value
+
+    observer(value1, value2, value3)
+
+    source1.observe(lifecycleOwner) {
+        if (it != value1) {
+            value1 = it
+            observer(value1, value2, value3)
+        }
+    }
+    source2.observe(lifecycleOwner) {
+        if (it != value2) {
+            value2 = it
+            observer(value1, value2, value3)
+        }
+    }
+
+    source3.observe(lifecycleOwner) {
+        if (it != value3) {
+            value3 = it
+            observer(value1, value2, value3)
+        }
+    }
+
+}
