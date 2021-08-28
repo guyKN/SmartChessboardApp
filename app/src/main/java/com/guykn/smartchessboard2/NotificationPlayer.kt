@@ -6,7 +6,6 @@ import android.media.Ringtone
 import android.media.RingtoneManager
 import android.net.Uri
 import android.util.Log
-import androidx.annotation.IdRes
 import androidx.annotation.RawRes
 import com.guykn.smartchessboard2.bluetooth.ChessBoardModel
 import com.guykn.smartchessboard2.network.lichess.LichessApi
@@ -14,7 +13,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.scopes.ServiceScoped
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -52,7 +50,7 @@ class NotificationPlayer @Inject constructor(
 
     init {
         coroutineScope.launch {
-            repository.lichessGameState.collect { currentGameState ->
+            repository.onlineGameState.collect { currentGameState ->
                 if (!PLAY_AUDIO){
                     Log.d(TAG, "not playing audio. ")
                     return@collect

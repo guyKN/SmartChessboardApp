@@ -25,6 +25,7 @@ import com.guykn.smartchessboard2.bluetooth.ChessBoardSettings
 import com.guykn.smartchessboard2.bluetooth.companiondevice.CompanionDeviceConnector
 import com.guykn.smartchessboard2.network.lichess.WebManager.InternetState.*
 import com.guykn.smartchessboard2.network.lichess.WebManager.UiOAuthState
+import com.guykn.smartchessboard2.network.oauth2.LICHESS_BASE_URL
 import com.guykn.smartchessboard2.network.oauth2.getLichessAuthIntent
 import com.guykn.smartchessboard2.openCustomChromeTab
 import dagger.hilt.android.AndroidEntryPoint
@@ -33,6 +34,8 @@ import net.openid.appauth.AuthorizationResponse
 import net.openid.appauth.AuthorizationService
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
+
+// todo: encapsulate more data into repository and viewmodel, instead of reaching into fields of complex data classes in UI layer
 
 @SuppressWarnings("DEPRECATION")
 @AndroidEntryPoint
@@ -63,10 +66,7 @@ class MainFragment : PreferenceFragmentCompat() {
 
     private lateinit var authService: AuthorizationService
 
-
-    private val isAwaitingLaunchLichess = AtomicBoolean(false)
-
-    private var signInCallback: (()->Unit)? = null
+    private var signInCallback: (() -> Unit)? = null
 
     private val lichessAuthLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -97,7 +97,7 @@ class MainFragment : PreferenceFragmentCompat() {
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         signInCallback = {
-           startViewSavedGames()
+            startViewSavedGames()
         }
         continueLichessLogin(result)
     }
@@ -154,7 +154,7 @@ class MainFragment : PreferenceFragmentCompat() {
             true
         }
 
-        twoPlayerGameButton.setOnPreferenceClickListener{
+        twoPlayerGameButton.setOnPreferenceClickListener {
             mainViewModel.startTwoPlayerGame()
             true
         }
@@ -205,10 +205,27 @@ class MainFragment : PreferenceFragmentCompat() {
 
     private fun startAndOpenOnlineGame() {
         mainViewModel.startOnlineGame()
-        mainViewModel.activeOnlineGame.value?.value?.let { lichessGame ->
+        val lichessGame = mainViewModel.activeOnlineGame.value?.value
+        val isOnlineGameActive = mainViewModel.isOnlineGameActive.value
+        val isOnlineGameOver = mainViewModel.isOnlineGameOver.value
+
+
+        if (isOnlineGameActive == true && lichessGame != null) {
             openCustomChromeTab(requireContext(), lichessGame.url)
-            isAwaitingLaunchLichess.set(false)
-        } ?: isAwaitingLaunchLichess.set(true)
+            mainViewModel.isAwaitingLaunchLichess.value = false
+        }else if (isOnlineGameOver == true){
+            openCustomChromeTab(requireContext(), LICHESS_BASE_URL)
+            mainViewModel.isAwaitingLaunchLichess.value = false
+        }else{
+            mainViewModel.isAwaitingLaunchLichess.value = true
+        }
+
+
+//        lichessGame?.let { lichessGame ->
+//
+//            openCustomChromeTab(requireContext(), lichessGame.url)
+//            isAwaitingLaunchLichess.set(false)
+//        } ?: isAwaitingLaunchLichess.set(true)
     }
 
 
@@ -240,8 +257,8 @@ class MainFragment : PreferenceFragmentCompat() {
         }
 
         // if the user sucsessfully signed in, invoke the signInCallback
-        mainViewModel.uiOAuthState.observe(viewLifecycleOwner){
-            if (it is UiOAuthState.Authorized){
+        mainViewModel.uiOAuthState.observe(viewLifecycleOwner) {
+            if (it is UiOAuthState.Authorized) {
                 signInCallback?.invoke()
                 signInCallback = null
             }
@@ -263,22 +280,22 @@ class MainFragment : PreferenceFragmentCompat() {
             }
         }
 
-        mainViewModel.activeOnlineGame.observe(viewLifecycleOwner){
-            if (it?.value == null){
-                playOnlineButton.title = "Play Online"
-                playOnlineButton.summary = ""
-            }else{
+        mainViewModel.isOnlineGameActive.observe(viewLifecycleOwner) { isOnlineGameActive ->
+            if (isOnlineGameActive == true) {
                 playOnlineButton.title = "Online Game In Progress"
                 playOnlineButton.summary = "Click here to view"
+            } else {
+                playOnlineButton.title = "Play Online"
+                playOnlineButton.summary = ""
             }
         }
 
-        mainViewModel.numGamesToUpload.observe(viewLifecycleOwner){ numGamesToUpload ->
-            when(numGamesToUpload){
-                0,null->{
+        mainViewModel.numGamesToUpload.observe(viewLifecycleOwner) { numGamesToUpload ->
+            when (numGamesToUpload) {
+                0, null -> {
                     uploadGamesButton.summary = ""
                 }
-                else->{
+                else -> {
                     uploadGamesButton.summary = "$numGamesToUpload games need to be uploaded"
                 }
             }
@@ -538,6 +555,9 @@ class MainFragment : PreferenceFragmentCompat() {
             }
         }
 
+        // always observe the MediatorLiveData, so that it is kept up to date even when using getValue()
+        mainViewModel.isOnlineGameActive.observe(viewLifecycleOwner){}
+        mainViewModel.isOnlineGameOver.observe(viewLifecycleOwner){}
 
     }
 

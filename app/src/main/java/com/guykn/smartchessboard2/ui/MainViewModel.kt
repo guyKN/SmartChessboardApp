@@ -1,16 +1,14 @@
 package com.guykn.smartchessboard2.ui
 
 import androidx.lifecycle.*
-import com.guykn.smartchessboard2.BroadcastEvent
+import com.guykn.smartchessboard2.*
 import com.guykn.smartchessboard2.EventBus.ErrorEvent
 import com.guykn.smartchessboard2.EventBus.SuccessEvent
-import com.guykn.smartchessboard2.LichessGameEvent
-import com.guykn.smartchessboard2.Repository
-import com.guykn.smartchessboard2.ServiceConnector
 import com.guykn.smartchessboard2.bluetooth.ChessBoardModel
 import com.guykn.smartchessboard2.bluetooth.ChessBoardSettings
 import com.guykn.smartchessboard2.bluetooth.GameStartRequest
 import com.guykn.smartchessboard2.network.lichess.BoolEvent
+import com.guykn.smartchessboard2.network.lichess.LichessApi
 import com.guykn.smartchessboard2.network.lichess.WebManager
 import com.guykn.smartchessboard2.network.lichess.WebManager.UiOAuthState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -52,6 +50,10 @@ class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) 
     val activeOnlineGame: LiveData<LichessGameEvent> =
         serviceConnector.copyLiveData { repository -> repository.activeGame }
 
+    val onlineGameState: LiveData<LichessApi.LichessGameState?> =
+        serviceConnector.copyLiveData { repository -> repository.onlineGameState }
+
+
     val internetState: LiveData<WebManager.InternetState> =
         serviceConnector.copyLiveData { repository -> repository.internetState }
 
@@ -67,7 +69,11 @@ class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) 
     val isLoadingOnlineGame: LiveData<BoolEvent> =
         serviceConnector.copyLiveData { repository -> repository.isLoadingOnlineGame }
 
-
+//    val isOnlineGameActive : LiveData<BoolEvent> =
+//        serviceConnector.copyLiveData { repository -> repository.isOnlineGamActive }
+//
+//    val isOnlineGameOver : LiveData<BoolEvent> =
+//        serviceConnector.copyLiveData { repository -> repository.isGameOver }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -76,6 +82,15 @@ class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) 
         serviceConnector.awaitConnected()
         emit(true)
     }
+
+    val isOnlineGameActive = combineLiveData(activeOnlineGame, onlineGameState){gameEvent, gameState ->
+        gameEvent?.value != null && (gameState?.isGameOver == false)
+    }
+
+    val isOnlineGameOver = combineLiveData(activeOnlineGame, onlineGameState){gameEvent, gameState ->
+        gameEvent?.value != null && (gameState?.isGameOver == true)
+    }
+
 
     private val _isWriteSettingsLoading = MutableLiveData<Boolean>(false)
     val isWriteSettingsLoading: LiveData<Boolean> = _isWriteSettingsLoading
@@ -126,6 +141,8 @@ class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) 
                     (isOfflineGameLoading.value == true) ||
                     (isBlinkLedLoading.value == true)
     }
+
+    val isAwaitingLaunchLichess: MutableLiveData<Boolean> = MutableLiveData(false)
 
     fun postErrorEvent(error: ErrorEvent) {
         viewModelScope.launch {

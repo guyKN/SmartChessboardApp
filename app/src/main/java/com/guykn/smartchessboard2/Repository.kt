@@ -19,10 +19,7 @@ import com.guykn.smartchessboard2.network.oauth2.TooManyRequestsException
 import com.guykn.smartchessboard2.ui.util.EventWithValue
 import dagger.hilt.android.scopes.ServiceScoped
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.*
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationResponse
 import java.io.IOException
@@ -63,9 +60,9 @@ class Repository @Inject constructor(
     private val _activeGame = MutableStateFlow<LichessGameEvent>(LichessGameEvent(null))
     val activeGame: StateFlow<LichessGameEvent> = _activeGame
 
-    private val _lichessGameState: MutableStateFlow<LichessApi.LichessGameState?> =
+    private val _onlineGameState: MutableStateFlow<LichessApi.LichessGameState?> =
         MutableStateFlow(null)
-    val lichessGameState = _lichessGameState as StateFlow<LichessApi.LichessGameState?>
+    val onlineGameState = _onlineGameState as StateFlow<LichessApi.LichessGameState?>
 
     val internetState: StateFlow<WebManager.InternetState> = webManager.internetState
 
@@ -90,6 +87,14 @@ class Repository @Inject constructor(
     val isLoadingBroadcast: StateFlow<Boolean> = _isLoadingBroadcast
 
     val isLoadingOnlineGame: StateFlow<BoolEvent> = webManager.isLoadingOnlineGame
+
+    val isOnlineGamActive: Flow<BoolEvent> = activeGame.combine(onlineGameState){ activeGame, gameState ->
+        BoolEvent(activeGame.value != null && gameState?.isGameOver != true)
+    }.shareIn(coroutineScope, SharingStarted.Eagerly)
+
+    val isGameOver: Flow<BoolEvent> = activeGame.combine(onlineGameState){ activeGame, gameState ->
+        BoolEvent(activeGame.value != null && gameState?.isGameOver != true)
+    }.shareIn(coroutineScope, SharingStarted.Eagerly)
 
 
     init {
@@ -239,7 +244,7 @@ class Repository @Inject constructor(
 
         // Whether a move is made online, update the physical chessboard
         coroutineScope.launch {
-            lichessGameState.collect { gameState ->
+            onlineGameState.collect { gameState ->
                 if (gameState == null) return@collect
                 launch {
                     try {
@@ -258,7 +263,7 @@ class Repository @Inject constructor(
         coroutineScope.launch {
             chessBoardModel.bluetoothState.collect { bluetoothState ->
                 if (bluetoothState == CONNECTED) {
-                    lichessGameState.value?.let { gameState ->
+                    onlineGameState.value?.let { gameState ->
                         launch {
                             try {
                                 bluetoothManager.writeMessage(
@@ -438,10 +443,9 @@ class Repository @Inject constructor(
                             Log.d(TAG, "activeGame changed to $game")
                             webManager.gameStream(game).collect { gameState ->
                                 yield()
-                                _lichessGameState.value = gameState
+                                _onlineGameState.value = gameState
                             }
                             // if the flow completes without throwing an exception, then the game has ended.
-                            _activeGame.value = LichessGameEvent(null)
                         } ?: kotlin.run {
                             // awaitGameStart() returned null. No game was found.
                             Log.w(TAG, "No game found")
