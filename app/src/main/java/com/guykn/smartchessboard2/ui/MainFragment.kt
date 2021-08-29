@@ -384,7 +384,7 @@ class MainFragment : PreferenceFragmentCompat() {
                 DISCONNECTED, CONNECTION_FAILED, SCAN_FAILED -> {
                     bluetoothMessageDialog = AlertDialog.Builder(requireContext())
                         .setTitle("Bluetooth Error")
-                        .setMessage("Failed to connect to with Bluetooth")
+                        .setMessage("Failed to connect to Bluetooth")
                         .setCancelable(false)
                         .setPositiveButton("Try Again") { _, _ ->
                             companionDeviceConnector.refreshBluetoothDevice()
