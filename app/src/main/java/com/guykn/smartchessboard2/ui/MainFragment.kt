@@ -23,7 +23,6 @@ import com.guykn.smartchessboard2.Repository.PgnFileUploadState.*
 import com.guykn.smartchessboard2.bluetooth.ChessBoardModel.BluetoothState.*
 import com.guykn.smartchessboard2.bluetooth.ChessBoardSettings
 import com.guykn.smartchessboard2.bluetooth.companiondevice.CompanionDeviceConnector
-import com.guykn.smartchessboard2.combineLiveDataPairs
 import com.guykn.smartchessboard2.network.lichess.WebManager.InternetState.*
 import com.guykn.smartchessboard2.network.lichess.WebManager.UiOAuthState
 import com.guykn.smartchessboard2.network.oauth2.LICHESS_BASE_URL
@@ -64,6 +63,7 @@ class MainFragment : PreferenceFragmentCompat() {
     private var bluetoothMessageDialog: Dialog? = null
     private var loadingBroadcastDialog: Dialog? = null
     private var uploadingPgnDialog: ProgressDialog? = null
+    private var signInProgressBar: ProgressDialog? = null
 
     private lateinit var authService: AuthorizationService
 
@@ -205,10 +205,10 @@ class MainFragment : PreferenceFragmentCompat() {
     }
 
     private fun startAndOpenOnlineGame() {
-        if (mainViewModel.isOnlineGameOver.value == true){
+        if (mainViewModel.isOnlineGameOver.value == true) {
             // the online game has ended and no new online game has started, so we can open lichess right away.
             openCustomChromeTab(requireContext(), LICHESS_BASE_URL)
-        }else {
+        } else {
             mainViewModel.startOnlineGame()
             mainViewModel.isAwaitingLaunchLichess.value = true
         }
@@ -237,8 +237,8 @@ class MainFragment : PreferenceFragmentCompat() {
 
         // If done looking for an online game and none was found, open the lichess homepage.
 
-        mainViewModel.launchLichessHomepageEvent.observe(viewLifecycleOwner){ event ->
-            if (event?.receive() == true && mainViewModel.isAwaitingLaunchLichess.value == true){
+        mainViewModel.launchLichessHomepageEvent.observe(viewLifecycleOwner) { event ->
+            if (event?.receive() == true && mainViewModel.isAwaitingLaunchLichess.value == true) {
                 openCustomChromeTab(requireContext(), LICHESS_BASE_URL)
                 mainViewModel.isAwaitingLaunchLichess.value = false
             }
@@ -262,11 +262,27 @@ class MainFragment : PreferenceFragmentCompat() {
             when (authState) {
                 null -> {
                 }
-                is UiOAuthState.NotAuthorized, is UiOAuthState.AuthorizationLoading -> {
+                is UiOAuthState.NotAuthorized -> {
+                    signInProgressBar?.dismiss()
+                    signInProgressBar = null
+
                     signInInfo.title = "Sign in"
                     signInInfo.summary = ""
                 }
+                is UiOAuthState.AuthorizationLoading -> {
+                    signInInfo.title = "Sign in"
+                    signInInfo.summary = ""
+
+                    if (signInProgressBar == null) {
+                        signInProgressBar =
+                            ProgressDialog.show(requireContext(), "", "Signing In", true)
+                    }
+                }
+
                 is UiOAuthState.Authorized -> {
+                    signInProgressBar?.dismiss()
+                    signInProgressBar = null
+
                     val username = authState.userInfo.username
                     signInInfo.title = "Signed in as $username"
                     signInInfo.summary = "Click here to sign out"
