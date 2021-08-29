@@ -51,7 +51,7 @@ class MainService : LifecycleService() {
         createNotificationChannel()
 
         val startActivityIntent = Intent(this, MainActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(this, 0, startActivityIntent, 0)
+        val pendingIntent = PendingIntent.getActivity(this, 0, startActivityIntent, PendingIntent.FLAG_IMMUTABLE)
         val notification: Notification = Notification.Builder(this, NOTIFICATION_CHANNEL_ID)
             .setContentTitle("Connected via Bluetooth") // todo: change text based on connection
             .setContentText("Tap for more info")
@@ -75,6 +75,7 @@ class MainService : LifecycleService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        Log.d(TAG, "onDestroy call in main service")
         repository.destroy()
         wakeLockManager.destroy()
     }
@@ -82,6 +83,7 @@ class MainService : LifecycleService() {
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
         Log.d(TAG, "onTaskRemoved called on MainService")
+        stopForeground(true)
         stopSelf()
     }
 }
