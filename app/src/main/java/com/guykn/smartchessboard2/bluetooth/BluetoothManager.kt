@@ -34,7 +34,8 @@ class BluetoothManager @Inject constructor(
 
 
     interface PgnFilesCallback {
-        fun onPgnFilesSent(messageData: String)
+        fun onPgnFileSent(messageData: String)
+        fun onPgnFilesDone(messageData: String)
     }
 
     private var bluetoothConnection: BluetoothConnection? = null
@@ -103,7 +104,10 @@ class BluetoothManager @Inject constructor(
                                     chessBoardModel.update(message.data)
                                 }
                                 ServerToClientActions.RET_PGN_FILES -> {
-                                    pgnFilesCallback.get().onPgnFilesSent(message.data)
+                                    pgnFilesCallback.get().onPgnFileSent(message.data)
+                                }
+                                ServerToClientActions.PGN_FILES_DONE ->{
+                                    pgnFilesCallback.get().onPgnFilesDone(message.data)
                                 }
                             }
                         }

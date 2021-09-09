@@ -19,7 +19,7 @@ import com.google.android.material.snackbar.Snackbar
 import com.guykn.smartchessboard2.EventBus.ErrorEvent
 import com.guykn.smartchessboard2.EventBus.SuccessEvent
 import com.guykn.smartchessboard2.R
-import com.guykn.smartchessboard2.Repository.PgnFileUploadState.*
+import com.guykn.smartchessboard2.Repository.PgnFilesUploadState.*
 import com.guykn.smartchessboard2.bluetooth.ChessBoardModel.BluetoothState.*
 import com.guykn.smartchessboard2.bluetooth.ChessBoardSettings
 import com.guykn.smartchessboard2.bluetooth.companiondevice.CompanionDeviceConnector
@@ -59,6 +59,7 @@ class MainFragment : PreferenceFragmentCompat() {
     private lateinit var uploadGamesButton: Preference
     private lateinit var blinkLedsButton: Preference
     private lateinit var learningModeSwitch: SwitchPreferenceCompat
+    private lateinit var archiveAllPgnButton: Preference
 
     private var bluetoothMessageDialog: Dialog? = null
     private var loadingBroadcastDialog: Dialog? = null
@@ -131,6 +132,7 @@ class MainFragment : PreferenceFragmentCompat() {
         uploadGamesButton = findPreference("upload_games")!!
         blinkLedsButton = findPreference("test_connection")!!
         learningModeSwitch = findPreference("learning_mode")!!
+        archiveAllPgnButton = findPreference("archive_all_pgn")!!
 
         signInInfo.setOnPreferenceClickListener {
             // if the user is signed out then this button sign in. If the user is signed in, this button signs out.
@@ -200,6 +202,19 @@ class MainFragment : PreferenceFragmentCompat() {
 
         blinkLedsButton.setOnPreferenceClickListener {
             mainViewModel.blinkLeds()
+            true
+        }
+
+        archiveAllPgnButton.setOnPreferenceClickListener {
+            AlertDialog.Builder(requireContext())
+                .setTitle("Are you sure?")
+                .setMessage("All saved games that have not been uploaded to Lichess will be deleted. Games that were already uploaded to Lichess will stay there. ")
+                .setCancelable(true)
+                .setPositiveButton("OK") { _, _ ->
+                    mainViewModel.archiveAllPgn()
+                }
+                .setNegativeButton("Cancel"){_, _-> }
+                .show()
             true
         }
     }
@@ -304,9 +319,17 @@ class MainFragment : PreferenceFragmentCompat() {
             when (numGamesToUpload) {
                 0, null -> {
                     uploadGamesButton.summary = ""
+
+                    archiveAllPgnButton.summary = "No games saved. "
+                    archiveAllPgnButton.isEnabled = false
+
                 }
                 else -> {
                     uploadGamesButton.summary = "$numGamesToUpload games need to be uploaded"
+
+                    archiveAllPgnButton.summary = "$numGamesToUpload games currently saved"
+                    archiveAllPgnButton.isEnabled = true
+
                 }
             }
         }
@@ -443,7 +466,27 @@ class MainFragment : PreferenceFragmentCompat() {
                     )
                         .show()
                 }
-                is SuccessEvent.UploadGamesSuccess -> openLichessSavedGames()
+                is SuccessEvent.UploadGamesSuccess ->{
+                    openLichessSavedGames()
+                }
+                is SuccessEvent.UploadGamesPartialSuccess ->{
+                    AlertDialog.Builder(requireContext())
+                        .setTitle("Not All Games Uploaded")
+                        .setMessage("Because of Lichess' API limits, not all games on the chessboard have been uploaded. To see all games, wait a few minutes and try again.")
+                        .setPositiveButton("OK") { _, _ -> }
+                        .setOnDismissListener{
+                            openLichessSavedGames()
+                        }
+                        .show()
+                }
+                is SuccessEvent.ArchiveAllPgnSuccess -> {
+                    Snackbar.make(
+                        view,
+                        "Deleted ${successEvent.numFiles} games",
+                        Snackbar.LENGTH_SHORT
+                    )
+                        .show()
+                }
             }
         }
 
@@ -545,7 +588,7 @@ class MainFragment : PreferenceFragmentCompat() {
             }
         }
 
-        mainViewModel.pgnFileUploadState.observe(viewLifecycleOwner) { pgnFileUploadState ->
+        mainViewModel.pgnFilesUploadState.observe(viewLifecycleOwner) { pgnFileUploadState ->
             when (pgnFileUploadState) {
                 NotUploading -> {
                     uploadingPgnDialog?.dismiss()

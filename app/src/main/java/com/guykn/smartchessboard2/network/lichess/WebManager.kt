@@ -13,6 +13,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.scopes.ServiceScoped
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import net.openid.appauth.AuthState
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationResponse
@@ -62,6 +64,8 @@ class WebManager @Inject constructor(
         MutableStateFlow(BoolEvent(false))
 
     val isLoadingOnlineGame: StateFlow<BoolEvent> = _isLoadingOnlineGame
+
+    private val importGameLock = Mutex()
 
     init {
         coroutineScope.launch {
@@ -263,22 +267,24 @@ class WebManager @Inject constructor(
     }
 
     suspend fun importGame(pgn: String): LichessApi.ImportedGame = networkCall {
-        val authorization: String = formatAuthHeader(getFreshToken())
-        val response = lichessApi.importGame(authorization, pgn)
-        when (response.code()) {
-            200 -> {
-                response.body()?.let {
-                    return it
+        importGameLock.withLock<LichessApi.ImportedGame> {
+            val authorization: String = formatAuthHeader(getFreshToken())
+            val response = lichessApi.importGame(authorization, pgn)
+            when (response.code()) {
+                200 -> {
+                    response.body()?.let {
+                        return it
+                    }
+                        ?: throw GenericNetworkException("Response code was 200, but body was null when importing game. ")
                 }
-                    ?: throw GenericNetworkException("Response code was 200, but body was null when importing game. ")
+                401 -> {
+                    Log.w(TAG, "Authorization is invalid or has expired, signing out. ")
+                    signOut()
+                    throw NotSignedInException("Error pushing move to game: Received http code 401 unauthorized. ")
+                }
+                429 -> on429httpStatus()
+                else -> throw GenericNetworkException("Received http error code: ${response.code()} when importing game. ")
             }
-            401 -> {
-                Log.w(TAG, "Authorization is invalid or has expired, signing out. ")
-                signOut()
-                throw NotSignedInException("Error pushing move to game: Received http code 401 unauthorized. ")
-            }
-            429 -> on429httpStatus()
-            else -> throw GenericNetworkException("Received http error code: ${response.code()} when importing game. ")
         }
     }
 

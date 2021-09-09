@@ -10,7 +10,7 @@ import javax.inject.Inject
 
 object BluetoothConstants {
     val CHESS_BOARD_UUID: UUID = UUID.fromString("6c08ff89-2218-449f-9590-66c704994db9")!!
-    val CHESS_BOARD_DEVICE_NAME = "Chess Board"
+    const val CHESS_BOARD_DEVICE_NAME = "Chess Board"
 
     // the number of bytes in the message head, which describes the number of bytes in the entire message
     const val MESSAGE_HEAD_LENGTH: Int = 4
@@ -40,6 +40,7 @@ object BluetoothConstants {
     @IntDef(
         ServerToClientActions.STATE_CHANGED,
         ServerToClientActions.RET_PGN_FILES,
+        ServerToClientActions.PGN_FILES_DONE,
         ServerToClientActions.ON_ERROR,
     )
     annotation class ServerToClientAction
@@ -47,7 +48,8 @@ object BluetoothConstants {
     object ServerToClientActions {
         const val STATE_CHANGED = 0
         const val RET_PGN_FILES = 1
-        const val ON_ERROR = 2
+        const val PGN_FILES_DONE = 2
+        const val ON_ERROR = 3
     }
 }
 
@@ -70,11 +72,7 @@ data class GameStartRequest(
     val startFen: String? = null
 )
 
-data class ArchivePgnFileRequest(val name: String)
-
-data class PgnFilesResponse(
-    val files: List<PgnFile>
-)
+data class ArchivePgnFileRequest(val name: String?, val all: Boolean?)
 
 data class PgnFile(
     val name: String,
@@ -111,7 +109,14 @@ class ClientToServerMessageProvider @Inject constructor(val gson: Gson) {
     fun requestArchivePgnFile(fileName: String): ClientToServerMessage{
         return ClientToServerMessage(
             ClientToServerActions.REQUEST_ARCHIVE_PGN_FILE,
-            gson.toJson(ArchivePgnFileRequest(fileName))
+            gson.toJson(ArchivePgnFileRequest(fileName, all = false))
+        )
+    }
+
+    fun requestArchiveAllPgn(): ClientToServerMessage{
+        return ClientToServerMessage(
+            ClientToServerActions.REQUEST_ARCHIVE_PGN_FILE,
+            gson.toJson(ArchivePgnFileRequest(all = true, name = null))
         )
     }
 

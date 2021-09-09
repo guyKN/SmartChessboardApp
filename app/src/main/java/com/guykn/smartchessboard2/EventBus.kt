@@ -7,8 +7,6 @@ import dagger.hilt.android.scopes.ServiceScoped
 import kotlinx.coroutines.flow.MutableStateFlow
 import javax.inject.Inject
 
-// todo: when uploading pgn, have a sperate even for what happens when some files are sucsessfully uploaded
-
 @ServiceScoped
 class EventBus @Inject constructor() {
     sealed class ErrorEvent: Event(){
@@ -30,8 +28,10 @@ class EventBus @Inject constructor() {
         class SignInSuccess(val userInfo: LichessApi.UserInfo) : SuccessEvent()
         class StartOfflineGameSuccess: SuccessEvent()
         class UploadGamesSuccess: SuccessEvent()
+        class UploadGamesPartialSuccess : SuccessEvent() // when some games were uploaded, but because of lichess's limit not all of them were.
         class ChangeSettingsSuccess(val settings: ChessBoardSettings): SuccessEvent()
         class BlinkLedsSuccess: SuccessEvent()
+        class ArchiveAllPgnSuccess(val numFiles: Int): SuccessEvent()
         class SignOutSuccess: SuccessEvent()
     }
 

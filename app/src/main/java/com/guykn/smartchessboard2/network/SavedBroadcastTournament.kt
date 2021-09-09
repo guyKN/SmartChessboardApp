@@ -1,4 +1,4 @@
-package com.guykn.smartchessboard2
+package com.guykn.smartchessboard2.network
 
 import android.content.Context
 import android.content.SharedPreferences

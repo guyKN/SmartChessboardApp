@@ -67,8 +67,8 @@ class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) 
     val uiOAuthState: LiveData<UiOAuthState> =
         serviceConnector.copyLiveData { repository -> repository.uiOAuthState }
 
-    val pgnFileUploadState: LiveData<Repository.PgnFileUploadState> =
-        serviceConnector.copyLiveData { repository -> repository.pgnFileUploadState }
+    val pgnFilesUploadState: LiveData<Repository.PgnFilesUploadState> =
+        serviceConnector.copyLiveData { repository -> repository.pgnFilesUploadState }
 
     val isLoadingBroadcast: LiveData<Boolean> =
         serviceConnector.copyLiveData { repository -> repository.isLoadingBroadcast }
@@ -107,7 +107,7 @@ class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) 
         addSource(isLoadingOnlineGame) { updateIsLoading() }
         addSource(bluetoothState) { updateIsLoading() }
         addSource(uiOAuthState) { updateIsLoading() }
-        addSource(pgnFileUploadState) { updateIsLoading() }
+        addSource(pgnFilesUploadState) { updateIsLoading() }
         addSource(isLoadingBroadcast) { updateIsLoading() }
         addSource(isWriteSettingsLoading) { updateIsLoading() }
         addSource(isOfflineGameLoading) { updateIsLoading() }
@@ -122,8 +122,8 @@ class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) 
                 (bluetoothState.value == ChessBoardModel.BluetoothState.PAIRING) ||
                 (bluetoothState.value == ChessBoardModel.BluetoothState.CONNECTING) ||
                 (uiOAuthState.value is UiOAuthState.AuthorizationLoading) ||
-                (pgnFileUploadState.value is Repository.PgnFileUploadState.UploadingToLichess) ||
-                (pgnFileUploadState.value is Repository.PgnFileUploadState.ExchangingBluetoothData) ||
+                (pgnFilesUploadState.value is Repository.PgnFilesUploadState.UploadingToLichess) ||
+                (pgnFilesUploadState.value is Repository.PgnFilesUploadState.ExchangingBluetoothData) ||
                 (isLoadingBroadcast.value == true) ||
                 (isLoadingOnlineGame.value?.value == true) ||
                 (isWriteSettingsLoading.value == true) ||
@@ -248,6 +248,13 @@ class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) 
         viewModelScope.launch {
             val repository = serviceConnector.awaitConnected()
             repository.blinkLeds()
+        }
+    }
+
+    fun archiveAllPgn() {
+        viewModelScope.launch {
+            val repository = serviceConnector.awaitConnected()
+            repository.archiveAllPgn()
         }
     }
 

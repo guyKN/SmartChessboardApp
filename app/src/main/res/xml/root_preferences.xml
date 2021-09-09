@@ -27,4 +27,9 @@
         app:title="Test Chessboard"
         app:summary="@string/menu_test_leds_description"/>
 
+    <Preference
+        app:key="archive_all_pgn"
+        app:title="Delete Saved Games"
+        app:summary="Games saved on the chessboard will be deleted. Games that were already uploaded to Lichess will remain."/>
+
 </PreferenceScreen>

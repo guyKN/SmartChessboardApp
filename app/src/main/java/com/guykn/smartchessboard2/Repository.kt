@@ -8,6 +8,8 @@ import com.guykn.smartchessboard2.EventBus.ErrorEvent
 import com.guykn.smartchessboard2.EventBus.SuccessEvent
 import com.guykn.smartchessboard2.bluetooth.*
 import com.guykn.smartchessboard2.bluetooth.ChessBoardModel.BluetoothState.CONNECTED
+import com.guykn.smartchessboard2.network.LichessRateLimitManager
+import com.guykn.smartchessboard2.network.SavedBroadcastTournament
 import com.guykn.smartchessboard2.network.lichess.BoolEvent
 import com.guykn.smartchessboard2.network.lichess.LichessApi
 import com.guykn.smartchessboard2.network.lichess.LichessApi.BroadcastRound
@@ -20,6 +22,8 @@ import com.guykn.smartchessboard2.ui.util.EventWithValue
 import dagger.hilt.android.scopes.ServiceScoped
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationResponse
 import java.io.IOException
@@ -42,12 +46,14 @@ class Repository @Inject constructor(
     private val savedBroadcastTournament: SavedBroadcastTournament,
     private val clientToServerMessageProvider: ClientToServerMessageProvider,
     private val gson: Gson,
+    private val lichessRateLimitManager: LichessRateLimitManager,
     val eventBus: EventBus,
     val chessBoardModel: ChessBoardModel
 ) : BluetoothManager.PgnFilesCallback {
 
     companion object {
         private const val TAG = "MA_Repository"
+
     }
 
     private var isBroadcastActive = MutableStateFlow<Boolean>(false)
@@ -70,31 +76,26 @@ class Repository @Inject constructor(
 
     val uiOAuthState: StateFlow<WebManager.UiOAuthState> = webManager.uiAuthState
 
-    sealed class PgnFileUploadState {
-        object NotUploading : PgnFileUploadState()
-        object ExchangingBluetoothData : PgnFileUploadState()
+    sealed class PgnFilesUploadState {
+        object NotUploading : PgnFilesUploadState()
+        object ExchangingBluetoothData : PgnFilesUploadState()
         data class UploadingToLichess(val numFilesUploaded: Int, val numFilesTotal: Int) :
-            PgnFileUploadState()
+            PgnFilesUploadState()
     }
 
-    private val isRequestingPgnFiles = AtomicBoolean(false)
+    private val isRequestingPgnFiles: AtomicBoolean = AtomicBoolean(false)
 
-    private val _pgnFilesUploadState: MutableStateFlow<PgnFileUploadState> =
-        MutableStateFlow(PgnFileUploadState.NotUploading)
-    val pgnFileUploadState: StateFlow<PgnFileUploadState> = _pgnFilesUploadState
+    private val _pgnFilesUploadState: MutableStateFlow<PgnFilesUploadState> =
+        MutableStateFlow(PgnFilesUploadState.NotUploading)
+    val pgnFilesUploadState: StateFlow<PgnFilesUploadState> = _pgnFilesUploadState
 
     private val _isLoadingBroadcast: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val isLoadingBroadcast: StateFlow<Boolean> = _isLoadingBroadcast
 
     val isLoadingOnlineGame: StateFlow<BoolEvent> = webManager.isLoadingOnlineGame
 
-    val isOnlineGamActive: Flow<BoolEvent> = activeGame.combine(onlineGameState){ activeGame, gameState ->
-        BoolEvent(activeGame.value != null && gameState?.isGameOver != true)
-    }.shareIn(coroutineScope, SharingStarted.Eagerly)
-
-    val isGameOver: Flow<BoolEvent> = activeGame.combine(onlineGameState){ activeGame, gameState ->
-        BoolEvent(activeGame.value != null && gameState?.isGameOver != true)
-    }.shareIn(coroutineScope, SharingStarted.Eagerly)
+    // only one thread may import games at any time.
+    private val importGameMutex = Mutex()
 
 
     init {
@@ -280,6 +281,20 @@ class Repository @Inject constructor(
         }
     }
 
+    // when disconnecting from bluetooth, stop all bluetooth related tasks
+    init {
+        coroutineScope.launch {
+            var prevState: ChessBoardModel.BluetoothState? = null
+            chessBoardModel.bluetoothState.collect { currentState ->
+                if (prevState == CONNECTED && currentState != CONNECTED) {
+                    isRequestingPgnFiles.set(false)
+                    _pgnFilesUploadState.value = PgnFilesUploadState.NotUploading
+                }
+                prevState = currentState
+            }
+        }
+    }
+
 
     suspend fun signIn(
         response: AuthorizationResponse?,
@@ -313,7 +328,7 @@ class Repository @Inject constructor(
 
 
     fun startBroadcast() {
-        if(chessBoardModel.gameInfo.value?.isOnlineGame() == true){
+        if (chessBoardModel.gameInfo.value?.isOnlineGame() == true) {
             eventBus.errorEvents.value = ErrorEvent.BroadcastCreatedWhileOnlineGameActive()
             return
         }
@@ -515,78 +530,131 @@ class Repository @Inject constructor(
         }
     }
 
+    suspend fun archiveAllPgn() {
+        try {
+            val numPgnFiles = chessBoardModel.numGamesToUpload.value ?: kotlin.run {
+                Log.w(TAG, "chessBoardModel.numGamesToUpload.value is null. ")
+                return
+            }
+            bluetoothManager.writeMessage(clientToServerMessageProvider.requestArchiveAllPgn())
+            eventBus.successEvents.value = SuccessEvent.ArchiveAllPgnSuccess(numPgnFiles)
+        } catch (e: IOException) {
+            eventBus.errorEvents.value = ErrorEvent.BluetoothIOError()
+        }
+    }
+
+
     fun setTargetBluetoothDevice(bluetoothDevice: BluetoothDevice?) {
         bluetoothManager.setTargetDevice(bluetoothDevice)
     }
 
     suspend fun uploadPgn() {
-        isRequestingPgnFiles.set(true)
-        _pgnFilesUploadState.value = PgnFileUploadState.ExchangingBluetoothData
-        try {
-            bluetoothManager.writeMessage(clientToServerMessageProvider.requestPgnFiles())
-        } catch (e: IOException) {
-            isRequestingPgnFiles.set(false)
-            _pgnFilesUploadState.value = PgnFileUploadState.NotUploading
-            eventBus.errorEvents.value = ErrorEvent.BluetoothIOError()
+        Log.d(TAG, "uploading Pgn. ")
+        if (isRequestingPgnFiles.getAndSet(true)) {
+            Log.w(TAG, "called uploadPgn() while already requesting pgn files.")
+            return
+        }
+        importGameMutex.withLock {
+            if (!lichessRateLimitManager.mayUploadPgnFile()) {
+                isRequestingPgnFiles.set(false)
+                _pgnFilesUploadState.value = PgnFilesUploadState.NotUploading
+                eventBus.successEvents.value = SuccessEvent.UploadGamesPartialSuccess()
+                return
+            }
+            _pgnFilesUploadState.value = PgnFilesUploadState.ExchangingBluetoothData
+            try {
+                bluetoothManager.writeMessage(clientToServerMessageProvider.requestPgnFiles())
+            } catch (e: IOException) {
+                isRequestingPgnFiles.set(false)
+                _pgnFilesUploadState.value = PgnFilesUploadState.NotUploading
+                eventBus.errorEvents.value = ErrorEvent.BluetoothIOError()
+            }
         }
     }
 
-    // utility class for separating IOExceptions that ocour from bluetooth and from internet IO within the same block.
+    // utility class for separating IOExceptions that occur from bluetooth and from internet IO within the same block.
     class BluetoothIOException(cause: java.lang.Exception) : java.lang.Exception(cause)
 
-    override fun onPgnFilesSent(messageData: String) {
-        if (!isRequestingPgnFiles.get()) {
-            Log.w(TAG, "Received pgn files from bluetooth while not requesting pgn files.")
-            _pgnFilesUploadState.value = PgnFileUploadState.NotUploading
-            return
-        }
-        isRequestingPgnFiles.set(false)
-
+    override fun onPgnFileSent(messageData: String) {
         coroutineScope.launch {
-            try {
-                val pgnFiles = gson.fromJson(messageData, PgnFilesResponse::class.java)
-                pgnFiles.files.forEachIndexed { index, file ->
-                    yield()
+            importGameMutex.withLock {
+                if (!isRequestingPgnFiles.get()) {
+                    Log.w(
+                        TAG,
+                        "Recieved pgn files while not requesting pgn files: $messageData"
+                    )
+                    return@launch
+                }
+
+                if (!lichessRateLimitManager.mayUploadPgnFile()) {
+                    Log.w(
+                        TAG,
+                        "Too many pgn files requested to upload, which surpassed the Lichess limit. "
+                    )
+                    isRequestingPgnFiles.set(false)
+                    _pgnFilesUploadState.value = PgnFilesUploadState.NotUploading
+                    eventBus.successEvents.value = SuccessEvent.UploadGamesPartialSuccess()
+                    return@launch
+                }
+
+                lichessRateLimitManager.onUploadFile()
+
+                try {
+                    val file = gson.fromJson(messageData, PgnFile::class.java)
+                    // todo: if using a progress bar, also show the total number of files
                     _pgnFilesUploadState.value =
-                        PgnFileUploadState.UploadingToLichess(index, pgnFiles.files.size)
+                        PgnFilesUploadState.UploadingToLichess(0, 0)
                     webManager.importGame(file.pgn)
                     try {
                         bluetoothManager.writeMessage(
-                            clientToServerMessageProvider.requestArchivePgnFile(
-                                file.name
-                            )
+                            clientToServerMessageProvider.requestArchivePgnFile(file.name)
                         )
                     } catch (e: IOException) {
                         throw BluetoothIOException(e)
                     }
+                } catch (e: Exception) {
+                    Log.d(TAG, "Exception occurred, stopped requesting pgn files")
+                    isRequestingPgnFiles.set(false)
+                    _pgnFilesUploadState.value = PgnFilesUploadState.NotUploading
+                    when (e) {
+                        is NotSignedInException,
+                        is AuthorizationException -> {
+                            Log.w(TAG, "Error uploading pgn files: ${e.message}")
+                            eventBus.errorEvents.value = ErrorEvent.NoLongerAuthorizedError()
+                        }
+                        is GenericNetworkException,
+                        is JsonParseException -> {
+                            Log.w(TAG, "Error uploading pgn files: ${e.message}")
+                            eventBus.errorEvents.value =
+                                ErrorEvent.MiscError("Couldn't upload games.")
+                        }
+                        is TooManyRequestsException -> {
+                            Log.w(TAG, "Error uploading pgn files: ${e.message}")
+                            eventBus.errorEvents.value =
+                                ErrorEvent.TooManyRequests(e.timeForValidRequests)
+                        }
+                        is BluetoothIOException -> {
+                            Log.w(TAG, "Error uploading pgn files: ${e.message}")
+                            eventBus.errorEvents.value = ErrorEvent.BluetoothIOError()
+                        }
+                        is IOException -> {
+                            Log.w(TAG, "Error uploading pgn files: ${e.message}")
+                            eventBus.errorEvents.value = ErrorEvent.InternetIOError()
+                        }
+                        else -> throw e
+                    }
                 }
-                eventBus.successEvents.value = SuccessEvent.UploadGamesSuccess()
-            } catch (e: Exception) {
-                when (e) {
-                    is NotSignedInException,
-                    is AuthorizationException -> {
-                        Log.w(TAG, "Error uploading pgn files: ${e.message}")
-                        eventBus.errorEvents.value = ErrorEvent.NoLongerAuthorizedError()
-                    }
-                    is GenericNetworkException,
-                    is JsonParseException -> {
-                        Log.w(TAG, "Error uploading pgn files: ${e.message}")
-                        eventBus.errorEvents.value =
-                            ErrorEvent.MiscError("Couldn't upload games.")
-                    }
-                    is TooManyRequestsException -> {
-                        Log.w(TAG, "Error uploading pgn files: ${e.message}")
-                        eventBus.errorEvents.value =
-                            ErrorEvent.TooManyRequests(e.timeForValidRequests)
-                    }
-                    is IOException -> {
-                        Log.w(TAG, "Error uploading pgn files: ${e.message}")
-                        eventBus.errorEvents.value = ErrorEvent.InternetIOError()
-                    }
-                    else -> throw e
+            }
+        }
+    }
+
+    override fun onPgnFilesDone(messageData: String) {
+        coroutineScope.launch {
+            importGameMutex.withLock {
+                if (isRequestingPgnFiles.getAndSet(false)) {
+                    _pgnFilesUploadState.value = PgnFilesUploadState.NotUploading
+                    eventBus.successEvents.value = SuccessEvent.UploadGamesSuccess()
                 }
-            } finally {
-                _pgnFilesUploadState.value = PgnFileUploadState.NotUploading
             }
         }
     }
