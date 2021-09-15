@@ -16,10 +16,13 @@ class SavedBroadcastTournament @Inject constructor(
     companion object {
         private const val KEY_TOURNAMENT = "tournament"
         private const val KEY_TOURNAMENT_INFO = "tournament_info"
+        private const val KEY_ROUND_NUMBER = "round_number"
     }
 
     private val sharedPreferences: SharedPreferences =
         context.getSharedPreferences(KEY_TOURNAMENT, Context.MODE_PRIVATE)
+
+
 
     var broadcastTournament: LichessApi.BroadcastTournament? = loadTournament()
         set(value) {
@@ -28,6 +31,16 @@ class SavedBroadcastTournament @Inject constructor(
                 .putString(KEY_TOURNAMENT_INFO, value?.let { gson.toJson(it) })
                 .apply()
         }
+
+    var numRounds: Int
+    get(){
+        return sharedPreferences.getInt(KEY_ROUND_NUMBER, 1)
+    }
+    set(value) {
+        sharedPreferences.edit()
+            .putInt(KEY_ROUND_NUMBER, value)
+            .apply()
+    }
 
     private fun loadTournament(): LichessApi.BroadcastTournament? {
         return sharedPreferences.getString(KEY_TOURNAMENT_INFO, null)?.let {

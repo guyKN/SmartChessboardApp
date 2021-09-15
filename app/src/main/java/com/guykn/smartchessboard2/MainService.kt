@@ -53,8 +53,8 @@ class MainService : LifecycleService() {
         val startActivityIntent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(this, 0, startActivityIntent, PendingIntent.FLAG_IMMUTABLE)
         val notification: Notification = Notification.Builder(this, NOTIFICATION_CHANNEL_ID)
-            .setContentTitle("Connected via Bluetooth") // todo: change text based on connection
-            .setContentText("Tap for more info")
+            .setContentTitle("App Running in Background")
+            .setContentText("Tap to open")
             .setSmallIcon(R.drawable.ic_notification_icon)
             .setContentIntent(pendingIntent)
             .build()

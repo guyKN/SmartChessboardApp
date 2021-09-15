@@ -65,9 +65,6 @@ class LichessRateLimitManager @Inject constructor(
                 .apply()
         }
 
-
-
-
     init {
         coroutineScope.launch {
             val prevNumFilesUploadedInLastMinute = numFilesUploadedInLastMinute

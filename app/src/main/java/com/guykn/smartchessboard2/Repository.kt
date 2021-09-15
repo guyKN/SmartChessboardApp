@@ -323,6 +323,8 @@ class Repository @Inject constructor(
         stopOnlineGame()
         stopBroadcast()
         webManager.signOut()
+        savedBroadcastTournament.broadcastTournament = null
+        savedBroadcastTournament.numRounds = 1
         eventBus.successEvents.value = SuccessEvent.SignOutSuccess()
     }
 
@@ -347,9 +349,17 @@ class Repository @Inject constructor(
             }
     }
 
+    // todo: test round names
+
     private suspend fun createBroadcastRound(): BroadcastRound {
         val broadcastTournament = getFreshBroadcastTournament()
-        val broadcastRound = webManager.createBroadcastRound(broadcastTournament)
+        val roundNumber = savedBroadcastTournament.numRounds
+        savedBroadcastTournament.numRounds++
+
+        val broadcastRound = webManager.createBroadcastRound(
+            broadcastTournament = broadcastTournament,
+            name  = "Game $roundNumber"
+        )
         _broadcastRound.value = BroadcastEvent(broadcastRound)
         return broadcastRound
     }

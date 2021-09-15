@@ -166,8 +166,8 @@ class WebManager @Inject constructor(
         JsonParseException::class
     )
     suspend fun createBroadcastTournament(
-        name: String = "Test",
-        description: String = "Test"
+        name: String = "Live Games From Electronic Chessboard",
+        description: String = "Games Played on the Electronic Chessboard are shown live here. "
     ): LichessApi.BroadcastTournament = networkCall {
         val authorization: String = formatAuthHeader(getFreshToken())
         val response: Response<LichessApi.BroadcastTournamentWrapper> =
@@ -184,7 +184,13 @@ class WebManager @Inject constructor(
                 throw NotSignedInException("Error creating broadcast round: Received http code 401 unauthorized. ")
             }
             429 -> on429httpStatus()
-            else -> throw GenericNetworkException("Error creating broadcast round: Received http error code: ${response.code()}. ")
+            else -> {
+                response.errorBody()?.let { responseBody ->
+                    val errorString = responseBody.stringCoroutine()
+                    Log.w(TAG, "Recieved http error code: ${response.code()}. \nResponse body:\n$errorString")
+                }
+                throw GenericNetworkException("Error creating broadcast tournament: Received http error code: ${response.code()}. ")
+            }
         }
     }
 
@@ -197,7 +203,7 @@ class WebManager @Inject constructor(
     )
     suspend fun createBroadcastRound(
         broadcastTournament: LichessApi.BroadcastTournament,
-        name: String = "Test"
+        name: String
     ): LichessApi.BroadcastRound = networkCall {
         val authorization: String = formatAuthHeader(getFreshToken())
         val response: Response<LichessApi.BroadcastRound> =
@@ -213,7 +219,13 @@ class WebManager @Inject constructor(
                 throw NotSignedInException("Error creating broadcast round: Received http code 401 unauthorized. ")
             }
             429 -> on429httpStatus()
-            else -> throw GenericNetworkException("Error creating broadcast round: Received http error code: ${response.code()}. ")
+            else -> {
+                response.errorBody()?.let { responseBody ->
+                    val errorString = responseBody.stringCoroutine()
+                    Log.w(TAG, "Received http error code: ${response.code()}. \nResponse body:\n$errorString")
+                }
+                throw GenericNetworkException("Error creating broadcast round: Received http error code: ${response.code()}. ")
+            }
         }
     }
 

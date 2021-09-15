@@ -555,7 +555,7 @@ class MainFragment : PreferenceFragmentCompat() {
                     Snackbar.make(
                         view,
                         "Can't create broadcast for an online game. ",
-                        Snackbar.LENGTH_SHORT
+                        Snackbar.LENGTH_LONG
                     )
                         .show()
                 }
