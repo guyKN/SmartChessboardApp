@@ -23,7 +23,7 @@ class LichessRateLimitManager @Inject constructor(
         private const val KEY_TIME_RESUME_UPLOADING_GAMES = "resume_upload_time"
 
         // lichess has a maximum number of games that can be uploaded every minute.
-        private const val MAX_GAME_UPLOAD_PER_MINUTE = 4
+        private const val MAX_GAME_UPLOAD_PER_MINUTE = 10
         // the API lets you upload a certain number of games per 1 minute, but we wait 70 seconds to be safer.
         private const val DELAY_RESUME_UPLOADING_GAMES: Long = 70 * 1000
 
