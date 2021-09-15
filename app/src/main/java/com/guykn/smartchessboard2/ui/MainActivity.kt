@@ -2,6 +2,7 @@ package com.guykn.smartchessboard2.ui
 
 import android.bluetooth.BluetoothDevice
 import android.companion.CompanionDeviceManager
+import android.content.Intent
 import android.content.IntentSender
 import android.os.Bundle
 import android.widget.Toast
@@ -55,6 +56,8 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
                 add(R.id.container, MainFragment())
             }
         }
+
+
     }
 
     override fun onDestroy() {

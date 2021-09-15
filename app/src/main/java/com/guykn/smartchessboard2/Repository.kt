@@ -48,12 +48,12 @@ class Repository @Inject constructor(
     private val gson: Gson,
     private val lichessRateLimitManager: LichessRateLimitManager,
     val eventBus: EventBus,
-    val chessBoardModel: ChessBoardModel
+    val chessBoardModel: ChessBoardModel,
+    val customTabNavigationManager: CustomTabNavigationManager
 ) : BluetoothManager.PgnFilesCallback {
 
     companion object {
         private const val TAG = "MA_Repository"
-
     }
 
     private var isBroadcastActive = MutableStateFlow<Boolean>(false)
@@ -96,7 +96,6 @@ class Repository @Inject constructor(
 
     // only one thread may import games at any time.
     private val importGameMutex = Mutex()
-
 
     init {
         // Whether a move is made on the physical chessboard, update the lichess broadcast.

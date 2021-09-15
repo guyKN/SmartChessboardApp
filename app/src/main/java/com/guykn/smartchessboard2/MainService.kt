@@ -8,12 +8,15 @@ import android.util.Log
 import androidx.lifecycle.LifecycleService
 import com.guykn.smartchessboard2.ui.MainActivity
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainService : LifecycleService() {
 
-    companion object{
+    companion object {
         private const val TAG = "MA_MainService"
         private const val NOTIFICATION_CHANNEL_ID = "Notifications"
         private const val NOTIFICATION_ID = 1
@@ -21,10 +24,15 @@ class MainService : LifecycleService() {
 
     @Inject
     lateinit var repository: Repository
+
     @Inject
     lateinit var notificationPlayer: NotificationPlayer
+
     @Inject
     lateinit var wakeLockManager: WakeLockManager
+
+    @Inject
+    lateinit var coroutineScope: CoroutineScope
 
     inner class MainServiceBinder : Binder() {
         val service: MainService
@@ -35,6 +43,7 @@ class MainService : LifecycleService() {
         super.onBind(intent)
         return MainServiceBinder()
     }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
         return START_STICKY
@@ -45,13 +54,27 @@ class MainService : LifecycleService() {
         super.onCreate()
         createForegroundNotification()
         wakeLockManager.start()
+
+        // When a new game in a broadcast starts while the user is viewing another broadcast,
+        // take the user back to the mainActivity so they can be sent to the new broadcast.
+        coroutineScope.launch {
+            repository.broadcastRound.combinePairs(repository.customTabNavigationManager.isTabShown)
+                .collect { (broadcastEvent, isTabShown) ->
+                if (!broadcastEvent.recieved && broadcastEvent.value != null && isTabShown) {
+                    val intent = Intent(this@MainService, MainActivity::class.java)
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    startActivity(intent)
+                }
+            }
+        }
     }
 
     private fun createForegroundNotification() {
         createNotificationChannel()
 
         val startActivityIntent = Intent(this, MainActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(this, 0, startActivityIntent, PendingIntent.FLAG_IMMUTABLE)
+        val pendingIntent =
+            PendingIntent.getActivity(this, 0, startActivityIntent, PendingIntent.FLAG_IMMUTABLE)
         val notification: Notification = Notification.Builder(this, NOTIFICATION_CHANNEL_ID)
             .setContentTitle("App Running in Background")
             .setContentText("Tap to open")

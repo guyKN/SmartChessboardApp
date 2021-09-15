@@ -16,6 +16,7 @@ import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SwitchPreferenceCompat
 import com.google.android.material.snackbar.Snackbar
+import com.guykn.smartchessboard2.CustomTabManager
 import com.guykn.smartchessboard2.EventBus.ErrorEvent
 import com.guykn.smartchessboard2.EventBus.SuccessEvent
 import com.guykn.smartchessboard2.R
@@ -28,7 +29,6 @@ import com.guykn.smartchessboard2.network.lichess.WebManager.UiOAuthState
 import com.guykn.smartchessboard2.network.oauth2.LICHESS_BASE_URL
 import com.guykn.smartchessboard2.network.oauth2.getLichessAuthIntent
 import com.guykn.smartchessboard2.observeMultiple
-import com.guykn.smartchessboard2.openCustomChromeTab
 import dagger.hilt.android.AndroidEntryPoint
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationResponse
@@ -48,6 +48,9 @@ class MainFragment : PreferenceFragmentCompat() {
 
     @Inject
     lateinit var companionDeviceConnector: CompanionDeviceConnector
+
+    @Inject
+    lateinit var customTabManager: CustomTabManager
 
     private val mainViewModel: MainViewModel by activityViewModels()
 
@@ -104,6 +107,10 @@ class MainFragment : PreferenceFragmentCompat() {
         continueLichessLogin(result)
     }
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        customTabManager.mayLaunchUrl(LICHESS_BASE_URL)
+    }
 
     private fun continueLichessLogin(result: ActivityResult?) {
         result?.data?.let {
@@ -177,7 +184,7 @@ class MainFragment : PreferenceFragmentCompat() {
             } else {
                 mainViewModel.startBroadcast()
                 mainViewModel.broadcastRound.value?.value?.let { broadcastRound ->
-                    openCustomChromeTab(requireContext(), broadcastRound.url)
+                    openCustomChromeTab(broadcastRound.url)
                 }
             }
             true
@@ -222,7 +229,7 @@ class MainFragment : PreferenceFragmentCompat() {
     private fun startAndOpenOnlineGame() {
         if (mainViewModel.isOnlineGameOver.value == true) {
             // the online game has ended and no new online game has started, so we can open lichess right away.
-            openCustomChromeTab(requireContext(), LICHESS_BASE_URL)
+            openCustomChromeTab(LICHESS_BASE_URL)
         } else {
             mainViewModel.startOnlineGame()
             mainViewModel.isAwaitingLaunchLichess.value = true
@@ -245,7 +252,7 @@ class MainFragment : PreferenceFragmentCompat() {
             mainViewModel.isOnlineGameActive
         ) { activeOnlineGame, isAwaitingLaunchLichess, isOnlineGameActive ->
             if (isAwaitingLaunchLichess == true && activeOnlineGame?.value != null && isOnlineGameActive == true) {
-                openCustomChromeTab(requireContext(), activeOnlineGame.value.url)
+                openCustomChromeTab(activeOnlineGame.value.url)
                 mainViewModel.isAwaitingLaunchLichess.value = false
             }
         }
@@ -254,14 +261,14 @@ class MainFragment : PreferenceFragmentCompat() {
 
         mainViewModel.launchLichessHomepageEvent.observe(viewLifecycleOwner) { event ->
             if (event?.receive() == true && mainViewModel.isAwaitingLaunchLichess.value == true) {
-                openCustomChromeTab(requireContext(), LICHESS_BASE_URL)
+                openCustomChromeTab(LICHESS_BASE_URL)
                 mainViewModel.isAwaitingLaunchLichess.value = false
             }
         }
 
         mainViewModel.broadcastRound.observe(viewLifecycleOwner) { broadcastEvent ->
             if (broadcastEvent?.receive() == true && broadcastEvent.value != null) {
-                openCustomChromeTab(requireContext(), broadcastEvent.value.url)
+                openCustomChromeTab(broadcastEvent.value.url)
             }
         }
 
@@ -614,6 +621,10 @@ class MainFragment : PreferenceFragmentCompat() {
 
     }
 
+    private fun openCustomChromeTab(url: String) {
+        customTabManager.openChromeTab(requireContext(), url)
+    }
+
 
     private fun startViewSavedGames() {
         when (mainViewModel.numGamesToUpload.value) {
@@ -629,7 +640,7 @@ class MainFragment : PreferenceFragmentCompat() {
     private fun openLichessSavedGames() {
         val authState = mainViewModel.uiOAuthState.value
         if (authState is UiOAuthState.Authorized) {
-            openCustomChromeTab(requireContext(), authState.userInfo.importedGamesUrl())
+            openCustomChromeTab(authState.userInfo.importedGamesUrl())
         } else {
             Log.w(
                 TAG,
