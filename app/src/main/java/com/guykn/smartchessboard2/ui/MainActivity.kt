@@ -10,12 +10,14 @@ import android.content.Intent
 import android.content.IntentSender
 import android.os.Bundle
 import android.util.Log
+import android.view.Menu
 import android.widget.Toast
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.Toolbar
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.fragment.app.commit
 import com.google.android.material.snackbar.Snackbar
@@ -37,49 +39,34 @@ import javax.inject.Inject
 class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallback,
     StartOfflineGameDialog.Callback, UiActionCallbacks {
 
-    @Inject
-    lateinit var companionDeviceConnector: CompanionDeviceConnector
-
-    @Inject
-    lateinit var customTabManager: CustomTabManager
-
-    private lateinit var authService: AuthorizationService
-
     private val mainViewModel: MainViewModel by viewModels()
 
+    @Inject
+    lateinit var companionDeviceConnector: CompanionDeviceConnector
+    @Inject
+    lateinit var customTabManager: CustomTabManager
+    private lateinit var authService: AuthorizationService
 
     private lateinit var coordinatorLayout: CoordinatorLayout
+    private lateinit var toolbar: Toolbar
 
     companion object {
-        const val TAG = "MainActivity"
+        const val TAG = "MA_MainActivity"
         const val REQUEST_ENABLE_BLUETOOTH = 420
-    }
-
-    private val bluetoothIntentLauncher = registerForActivityResult(
-        ActivityResultContracts.StartIntentSenderForResult()
-    ) { result ->
-        result?.data?.getParcelableExtra<BluetoothDevice>(CompanionDeviceManager.EXTRA_DEVICE)
-            ?.let {
-                companionDeviceConnector.onDeviceSelected(it)
-            } ?: kotlin.run {
-            Toast.makeText(
-                this,
-                "Please allow the app to associate with the chessboard.",
-                Toast.LENGTH_LONG
-            ).show()
-            companionDeviceConnector.refreshBluetoothDevice()
-        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
         coordinatorLayout = findViewById(R.id.coordinator_layout)!!
+
+        toolbar = findViewById(R.id.toolbar)!!
+        setSupportActionBar(toolbar)
 
         authService = AuthorizationService(this)
 
         companionDeviceConnector.refreshBluetoothDevice()
-        setContentView(R.layout.activity_main)
         if (savedInstanceState == null) {
             supportFragmentManager.commit {
                 setReorderingAllowed(true)
@@ -95,6 +82,29 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
         companionDeviceConnector.destroy()
         authService.dispose()
         super.onDestroy()
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+        menuInflater.inflate(R.menu.action_bar_menu, menu)
+        return true
+    }
+
+    //////////////////////////////////////////////////////////////////////////////////////////////
+
+    private val bluetoothIntentLauncher = registerForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        result?.data?.getParcelableExtra<BluetoothDevice>(CompanionDeviceManager.EXTRA_DEVICE)
+            ?.let {
+                companionDeviceConnector.onDeviceSelected(it)
+            } ?: kotlin.run {
+            Toast.makeText(
+                this,
+                "Please allow the app to associate with the chessboard.",
+                Toast.LENGTH_LONG
+            ).show()
+            companionDeviceConnector.refreshBluetoothDevice()
+        }
     }
 
     override fun onIntentFound(intentSender: IntentSender) {
