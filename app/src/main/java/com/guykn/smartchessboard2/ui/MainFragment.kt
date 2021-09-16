@@ -589,7 +589,7 @@ class MainFragment : PreferenceFragmentCompat() {
                 loadingBroadcastDialog = ProgressDialog.show(
                     requireContext(),
                     null,
-                    "Starting Online Game",
+                    "Loading Online Games",
                     true
                 )
             }
@@ -606,7 +606,7 @@ class MainFragment : PreferenceFragmentCompat() {
                     if (uploadingPgnDialog == null) {
                         uploadingPgnDialog = ProgressDialog.show(
                             requireContext(),
-                            "Loading...",
+                            null,
                             "Uploading Saved Games",
                             true
                         )
@@ -658,6 +658,4 @@ class MainFragment : PreferenceFragmentCompat() {
             Log.w(TAG, "Tried to request enabling bluetooth while bluetooth was already enabled. ")
         }
     }
-
-
 }

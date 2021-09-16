@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ResolveInfo
 import android.net.Uri
+import android.util.Log
 import androidx.browser.customtabs.CustomTabsClient
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.browser.customtabs.CustomTabsService.ACTION_CUSTOM_TABS_CONNECTION
@@ -21,6 +22,10 @@ class CustomTabManager @Inject constructor(
     @ApplicationContext private val applicationContext: Context,
     serviceConnector: ServiceConnector
 ) {
+
+    companion object{
+        const val TAG = "MA_CustomTabManager"
+    }
 
     private var customTabsClient: CustomTabsClient? = null
     private var customTabSession: CustomTabsSession? = null
@@ -77,8 +82,10 @@ class CustomTabManager @Inject constructor(
     fun mayLaunchUrl(url: String){
         if (!likelyUrlsToLaunch.contains(url)) {
             likelyUrlsToLaunch.add(url)
+            Log.d(TAG, "calling mayLaunchUrl()")
             customTabSession?.mayLaunchUrl(Uri.parse(url), null, null)
                 ?: connectedCallbacks.add {
+                    Log.d(TAG, "calling mayLaunchUrl()")
                     customTabSession?.mayLaunchUrl(Uri.parse(url), null, null)
                 }
         }
