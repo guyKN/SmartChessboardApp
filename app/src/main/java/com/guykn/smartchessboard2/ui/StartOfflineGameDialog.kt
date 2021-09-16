@@ -7,10 +7,6 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.os.Bundle
 import android.util.Log
-import android.view.Gravity
-import android.view.ViewGroup
-import android.widget.Button
-import android.widget.LinearLayout
 import androidx.fragment.app.DialogFragment
 import com.addisonelliott.segmentedbutton.SegmentedButtonGroup
 import com.guykn.smartchessboard2.R
@@ -20,7 +16,7 @@ import com.shawnlin.numberpicker.NumberPicker
 class StartOfflineGameDialog : DialogFragment() {
 
     interface Callback {
-        fun startOfflineGame(gameStartRequest: GameStartRequest)
+        fun handleGameStartRequest(gameStartRequest: GameStartRequest)
     }
 
     companion object {
@@ -86,7 +82,7 @@ class StartOfflineGameDialog : DialogFragment() {
             .setView(view)
             .setTitle(R.string.title_play_against_computer)
             .setPositiveButton(R.string.start_game) { _, _ ->
-                callback.startOfflineGame(currentGameStartRequest())
+                callback.handleGameStartRequest(currentGameStartRequest())
             }
             .create()
 

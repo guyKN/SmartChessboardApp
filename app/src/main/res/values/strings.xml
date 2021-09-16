@@ -9,7 +9,6 @@
     <string name="start_online_game">Start Online Game</string>
     <string name="learning_mode">Learning Mode</string>
     <string name="upload_games">Upload Games</string>
-    <string name="attachment_summary_off">Only download attachments when manually requested</string>
     <string name="computer_strength">Computer Strength:</string>
     <string name="play_as">Play As:</string>
     <string name="title_play_against_computer">Play against the computer</string>
