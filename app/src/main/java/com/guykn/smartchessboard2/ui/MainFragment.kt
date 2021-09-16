@@ -1,46 +1,46 @@
-package com.guykn.smartchessboard2.ui
-
-import android.app.AlertDialog
-import android.app.Dialog
-import android.app.ProgressDialog
-import android.bluetooth.BluetoothAdapter
-import android.content.Context
-import android.content.Intent
-import android.os.Bundle
-import android.util.Log
-import android.view.View
-import androidx.activity.result.ActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.fragment.app.activityViewModels
-import androidx.preference.Preference
-import androidx.preference.PreferenceFragmentCompat
-import androidx.preference.SwitchPreferenceCompat
-import com.google.android.material.snackbar.Snackbar
-import com.guykn.smartchessboard2.CustomTabManager
-import com.guykn.smartchessboard2.EventBus.ErrorEvent
-import com.guykn.smartchessboard2.EventBus.SuccessEvent
-import com.guykn.smartchessboard2.R
-import com.guykn.smartchessboard2.Repository.PgnFilesUploadState.*
-import com.guykn.smartchessboard2.bluetooth.ChessBoardModel.BluetoothState.*
-import com.guykn.smartchessboard2.bluetooth.ChessBoardSettings
-import com.guykn.smartchessboard2.bluetooth.companiondevice.CompanionDeviceConnector
-import com.guykn.smartchessboard2.network.lichess.WebManager.InternetState.*
-import com.guykn.smartchessboard2.network.lichess.WebManager.UiOAuthState
-import com.guykn.smartchessboard2.network.oauth2.LICHESS_BASE_URL
-import com.guykn.smartchessboard2.network.oauth2.getLichessAuthIntent
-import com.guykn.smartchessboard2.observeMultiple
-import dagger.hilt.android.AndroidEntryPoint
-import net.openid.appauth.AuthorizationException
-import net.openid.appauth.AuthorizationResponse
-import net.openid.appauth.AuthorizationService
-import javax.inject.Inject
-
-// todo: encapsulate more data into repository and viewmodel, instead of reaching into fields of complex data classes in UI layer
-
-@SuppressWarnings("DEPRECATION")
-@AndroidEntryPoint
-abstract class MainFragment : PreferenceFragmentCompat() {
-
+//package com.guykn.smartchessboard2.ui
+//
+//import android.app.AlertDialog
+//import android.app.Dialog
+//import android.app.ProgressDialog
+//import android.bluetooth.BluetoothAdapter
+//import android.content.Context
+//import android.content.Intent
+//import android.os.Bundle
+//import android.util.Log
+//import android.view.View
+//import androidx.activity.result.ActivityResult
+//import androidx.activity.result.contract.ActivityResultContracts
+//import androidx.fragment.app.activityViewModels
+//import androidx.preference.Preference
+//import androidx.preference.PreferenceFragmentCompat
+//import androidx.preference.SwitchPreferenceCompat
+//import com.google.android.material.snackbar.Snackbar
+//import com.guykn.smartchessboard2.CustomTabManager
+//import com.guykn.smartchessboard2.EventBus.ErrorEvent
+//import com.guykn.smartchessboard2.EventBus.SuccessEvent
+//import com.guykn.smartchessboard2.R
+//import com.guykn.smartchessboard2.Repository.PgnFilesUploadState.*
+//import com.guykn.smartchessboard2.bluetooth.ChessBoardModel.BluetoothState.*
+//import com.guykn.smartchessboard2.bluetooth.ChessBoardSettings
+//import com.guykn.smartchessboard2.bluetooth.companiondevice.CompanionDeviceConnector
+//import com.guykn.smartchessboard2.network.lichess.WebManager.InternetState.*
+//import com.guykn.smartchessboard2.network.lichess.WebManager.UiOAuthState
+//import com.guykn.smartchessboard2.network.oauth2.LICHESS_BASE_URL
+//import com.guykn.smartchessboard2.network.oauth2.getLichessAuthIntent
+//import com.guykn.smartchessboard2.observeMultiple
+//import dagger.hilt.android.AndroidEntryPoint
+//import net.openid.appauth.AuthorizationException
+//import net.openid.appauth.AuthorizationResponse
+//import net.openid.appauth.AuthorizationService
+//import javax.inject.Inject
+//
+//// todo: encapsulate more data into repository and viewmodel, instead of reaching into fields of complex data classes in UI layer
+//
+//@SuppressWarnings("DEPRECATION")
+//@AndroidEntryPoint
+//abstract class MainFragment : PreferenceFragmentCompat() {
+//
 //    companion object {
 //        const val TAG = "MA_MainFragment"
 //    }
@@ -256,4 +256,4 @@ abstract class MainFragment : PreferenceFragmentCompat() {
 //            Log.w(TAG, "Tried to request enabling bluetooth while bluetooth was already enabled. ")
 //        }
 //    }
-}
+//}

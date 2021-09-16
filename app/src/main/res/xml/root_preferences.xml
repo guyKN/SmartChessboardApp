@@ -1,22 +1,6 @@
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <Preference
-        app:key="sign_in_info"/>
-    <Preference
-        app:key="play_against_ai"
-        app:title="@string/menu_play_against_computer"/>
-    <Preference
-        app:key="two_player_game"
-        app:title="@string/menu_2_player_game"/>
-    <Preference
-        app:key="play_online" />
-    <Preference
-        app:key="start_broadcast"
-        app:title="@string/menu_broadcast_game"/>
-    <Preference
-        app:key="upload_games"
-        app:title="@string/menu_upload_games"/>
-
+    
     <SwitchPreferenceCompat
         app:key="learning_mode"
         app:title="@string/menu_learning_mode"

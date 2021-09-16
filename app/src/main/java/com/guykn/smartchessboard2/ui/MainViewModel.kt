@@ -27,6 +27,16 @@ class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) 
         private const val DELAY_OPEN_LICHESS_HOMEPAGE: Long = 2000
     }
 
+    enum class ActionBarState{
+        NORMAL_ACTION_BAR,
+        SETTINGS_ACTION_BAR
+    }
+
+    val actionBarState: MutableLiveData<ActionBarState> = MutableLiveData(ActionBarState.NORMAL_ACTION_BAR)
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////
+
     val errorEvents: LiveData<ErrorEvent?> =
         serviceConnector.copyLiveData { repository -> repository.eventBus.errorEvents }
 
@@ -147,6 +157,8 @@ class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) 
 
     private val _launchLichessHomepageEvent: MutableLiveData<Event> = MutableLiveData()
     val launchLichessHomepageEvent: LiveData<Event> = _launchLichessHomepageEvent
+
+
 
     fun postErrorEvent(error: ErrorEvent) {
         viewModelScope.launch {

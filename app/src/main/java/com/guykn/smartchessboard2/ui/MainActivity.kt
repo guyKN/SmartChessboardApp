@@ -11,13 +11,13 @@ import android.content.IntentSender
 import android.os.Bundle
 import android.util.Log
 import android.view.Menu
+import android.view.MenuItem
 import android.widget.Toast
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.Toolbar
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.fragment.app.commit
 import com.google.android.material.snackbar.Snackbar
@@ -28,6 +28,8 @@ import com.guykn.smartchessboard2.bluetooth.companiondevice.CompanionDeviceConne
 import com.guykn.smartchessboard2.network.lichess.WebManager
 import com.guykn.smartchessboard2.network.oauth2.LICHESS_BASE_URL
 import com.guykn.smartchessboard2.network.oauth2.getLichessAuthIntent
+import com.guykn.smartchessboard2.ui.MainViewModel.ActionBarState.NORMAL_ACTION_BAR
+import com.guykn.smartchessboard2.ui.MainViewModel.ActionBarState.SETTINGS_ACTION_BAR
 import dagger.hilt.android.AndroidEntryPoint
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationResponse
@@ -43,12 +45,12 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
 
     @Inject
     lateinit var companionDeviceConnector: CompanionDeviceConnector
+
     @Inject
     lateinit var customTabManager: CustomTabManager
     private lateinit var authService: AuthorizationService
 
     private lateinit var coordinatorLayout: CoordinatorLayout
-    private lateinit var toolbar: Toolbar
 
     companion object {
         const val TAG = "MA_MainActivity"
@@ -61,8 +63,7 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
 
         coordinatorLayout = findViewById(R.id.coordinator_layout)!!
 
-        toolbar = findViewById(R.id.toolbar)!!
-        setSupportActionBar(toolbar)
+        setSupportActionBar(findViewById(R.id.toolbar)!!)
 
         authService = AuthorizationService(this)
 
@@ -74,8 +75,11 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
             }
         }
 
+        customTabManager.mayLaunchUrl(LICHESS_BASE_URL)
+
         startObserveForUi()
         startObserveForOpenTabs()
+        startObserveForActionBar()
     }
 
     override fun onDestroy() {
@@ -84,12 +88,44 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
         super.onDestroy()
     }
 
-    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-        menuInflater.inflate(R.menu.action_bar_menu, menu)
-        return true
+    override fun onPrepareOptionsMenu(menu: Menu?): Boolean {
+        return when (val actionBarState = mainViewModel.actionBarState.value) {
+            NORMAL_ACTION_BAR -> {
+                menuInflater.inflate(R.menu.action_bar_menu, menu)
+                true
+            }
+            SETTINGS_ACTION_BAR -> {
+                true
+            }
+            else -> error("Invalid value of actionBarState = $actionBarState")
+        }
     }
 
-    //////////////////////////////////////////////////////////////////////////////////////////////
+    override fun onOptionsItemSelected(item: MenuItem): Boolean = when (item.itemId) {
+        R.id.action_settings -> {
+            supportFragmentManager.commit {
+                setReorderingAllowed(true)
+                setCustomAnimations(
+                    R.anim.slide_in,
+                    R.anim.slide_out,
+                    R.anim.slide_in,
+                    R.anim.slide_out
+                )
+                addToBackStack(null)
+                replace(R.id.container, ExtraOptionsFragment())
+            }
+            true
+        }
+        android.R.id.home ->{
+            supportFragmentManager.popBackStack()
+            true
+        }
+        else -> {
+            super.onOptionsItemSelected(item)
+        }
+    }
+
+//////////////////////////////////////////////////////////////////////////////////////////////
 
     private val bluetoothIntentLauncher = registerForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
@@ -290,6 +326,26 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
             if (it is WebManager.UiOAuthState.Authorized) {
                 signInCallback?.invoke()
                 signInCallback = null
+            }
+        }
+    }
+
+    private fun startObserveForActionBar(){
+        mainViewModel.actionBarState.observe(this){ actionBarState ->
+            invalidateOptionsMenu()
+            when(actionBarState!!){
+                NORMAL_ACTION_BAR -> {
+                    supportActionBar!!.apply {
+                        setTitle(R.string.app_name)
+                        setDisplayHomeAsUpEnabled(false)
+                    }
+                }
+                SETTINGS_ACTION_BAR->{
+                    supportActionBar!!.apply {
+                        setTitle(R.string.settings)
+                        setDisplayHomeAsUpEnabled(true)
+                    }
+                }
             }
         }
     }

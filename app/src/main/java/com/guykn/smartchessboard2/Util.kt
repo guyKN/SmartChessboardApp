@@ -1,5 +1,9 @@
 package com.guykn.smartchessboard2
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MediatorLiveData
@@ -122,3 +126,18 @@ fun <T1, T2, T3> observeMultiple(
 
 }
 
+fun Drawable.toBitmap(): Bitmap? {
+    if (this is BitmapDrawable) {
+        return this.bitmap
+    }
+    val bitmap =
+        Bitmap.createBitmap(
+            intrinsicWidth,
+            intrinsicHeight,
+            Bitmap.Config.ARGB_8888
+        )
+    val canvas = Canvas(bitmap)
+    setBounds(0, 0, canvas.width, canvas.height)
+    draw(canvas)
+    return bitmap
+}
