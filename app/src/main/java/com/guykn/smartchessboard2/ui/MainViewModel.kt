@@ -1,6 +1,12 @@
 package com.guykn.smartchessboard2.ui
 
-import androidx.lifecycle.*
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.MediatorLiveData
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.liveData
 import com.guykn.smartchessboard2.*
 import com.guykn.smartchessboard2.EventBus.ErrorEvent
 import com.guykn.smartchessboard2.EventBus.SuccessEvent
@@ -25,6 +31,7 @@ class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) 
     companion object{
         // When searching for a game on lichess, there's no way to know when no game was found. We wait this many milliseconds until assuming there is no game and opening the home page of liches.
         private const val DELAY_OPEN_LICHESS_HOMEPAGE: Long = 2000
+        private const val TAG = "MA_MainViewModel"
     }
 
     enum class ActionBarState{
@@ -61,8 +68,8 @@ class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) 
     val chessBoardSettings: LiveData<ChessBoardSettings?> =
         serviceConnector.copyLiveData { repository -> repository.chessBoardModel.settings }
 
-    val broadcastRound: LiveData<BroadcastEvent?> =
-        serviceConnector.copyLiveData { repository -> repository.broadcastRound }
+    val broadcastGame: LiveData<BroadcastGameEvent?> =
+        serviceConnector.copyLiveData { repository -> repository.broadcastGame }
 
     val activeOnlineGame: LiveData<LichessGameEvent> =
         serviceConnector.copyLiveData { repository -> repository.activeGame }
@@ -273,5 +280,27 @@ class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) 
     override fun onCleared() {
         super.onCleared()
         serviceConnector.destroy()
+    }
+
+    // emptily observe all LiveData, to avoid strange bugs where liveData isn't observed.
+    fun observeAll(lifecycleOwner: LifecycleOwner){
+        this.numGamesToUpload.observe(lifecycleOwner){}
+        this.isOnlineGameActive.observe(lifecycleOwner) {}
+        this.isOnlineGameOver.observe(lifecycleOwner) {}
+        this.errorEvents.observe(lifecycleOwner) {}
+        this.successEvents.observe(lifecycleOwner) {}
+        this.bluetoothState.observe(lifecycleOwner) {}
+        this.isOfflineGameActive.observe(lifecycleOwner) {}
+        this.offlineGameInfo.observe(lifecycleOwner) {}
+        this.offlineGameBoardState.observe(lifecycleOwner) {}
+        this.chessBoardSettings.observe(lifecycleOwner) {}
+        this.broadcastGame.observe(lifecycleOwner) {}
+        this.activeOnlineGame.observe(lifecycleOwner) {}
+        this.onlineGameState.observe(lifecycleOwner) {}
+        this.internetState.observe(lifecycleOwner) {}
+        this.uiOAuthState.observe(lifecycleOwner) {}
+        this.pgnFilesUploadState.observe(lifecycleOwner) {}
+        this.isLoadingBroadcast.observe(lifecycleOwner) {}
+        this.isLoadingOnlineGame.observe(lifecycleOwner) {}
     }
 }

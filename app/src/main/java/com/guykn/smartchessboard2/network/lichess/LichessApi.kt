@@ -14,7 +14,7 @@ interface LichessApi {
      */
     class InvalidMessageException(message: String) : Exception(message)
 
-    data class UserInfo(val id: String, val username: String){
+    data class UserInfo(val id: String, val username: String) {
         fun importedGamesUrl(): String = "https://lichess.org/@/$id/import#games"
     }
 
@@ -75,6 +75,15 @@ interface LichessApi {
         @Header("Authorization") authentication: String,
     ): Response<EmailResponse>
 
+    data class BroadcastRoundResponse(val games: List<BroadcastGame>) {
+        data class BroadcastGame(val url: String)
+    }
+
+    @GET("https://lichess.org/broadcast/-/-/{broadcastRoundId}")
+    suspend fun getBroadcastRound(
+        @Header("Authorization") authentication: String,
+        @Path("broadcastRoundId") broadcastRoundId: String
+    ): Response<BroadcastRoundResponse>
 
     data class GameEvent(val type: String, val game: Game?)
     data class Game(val id: String) {
@@ -118,7 +127,8 @@ interface LichessApi {
             return LichessGameState(
                 gameId = gameId,
                 clientColor = playerColor,
-                moves = moves ?: throw InvalidMessageException("Moves must be non-null for when type=='gameState'"),
+                moves = moves
+                    ?: throw InvalidMessageException("Moves must be non-null for when type=='gameState'"),
                 winner = if (status == "draw" || status == "aborted") "draw" else winner
             )
         }
@@ -136,14 +146,14 @@ interface LichessApi {
         val isGameOver
             get() = winner != null
         val numMoves: Int
-        get() {
+            get() {
 
-            return if (moves == ""){
-                0
-            }else{
-                moves.countOccurrences(' ') + 1
+                return if (moves == "") {
+                    0
+                } else {
+                    moves.countOccurrences(' ') + 1
+                }
             }
-        }
     }
 
 }

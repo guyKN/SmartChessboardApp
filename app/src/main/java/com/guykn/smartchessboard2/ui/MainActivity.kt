@@ -12,6 +12,8 @@ import android.os.Bundle
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.IntentSenderRequest
@@ -36,7 +38,6 @@ import net.openid.appauth.AuthorizationResponse
 import net.openid.appauth.AuthorizationService
 import javax.inject.Inject
 
-
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallback,
     StartOfflineGameDialog.Callback, UiActionCallbacks {
@@ -51,6 +52,9 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
     private lateinit var authService: AuthorizationService
 
     private lateinit var coordinatorLayout: CoordinatorLayout
+    private lateinit var signInButton: LinearLayout
+    private lateinit var signInMainText: TextView
+    private lateinit var signInSecondaryText: TextView
 
     companion object {
         const val TAG = "MA_MainActivity"
@@ -62,6 +66,10 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
         setContentView(R.layout.activity_main)
 
         coordinatorLayout = findViewById(R.id.coordinator_layout)!!
+        signInMainText = findViewById(R.id.sign_in_main)!!
+        signInSecondaryText = findViewById(R.id.sign_in_secondary)!!
+        signInButton = findViewById(R.id.sign_in_button)!!
+
 
         setSupportActionBar(findViewById(R.id.toolbar)!!)
 
@@ -77,6 +85,29 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
 
         customTabManager.mayLaunchUrl(LICHESS_BASE_URL)
 
+        signInButton.setOnClickListener {
+            when(mainViewModel.uiOAuthState.value){
+                null -> {
+                }
+                is WebManager.UiOAuthState.NotAuthorized -> {
+                    signIn()
+                }
+                is WebManager.UiOAuthState.AuthorizationLoading->{
+                    Log.w(TAG, "Sign in button pressed while in the middle of signing in. ")
+                }
+                is WebManager.UiOAuthState.Authorized -> {
+                    AlertDialog.Builder(this)
+                        .setTitle("Are You Sure You Want to Sign Out?")
+                        .setCancelable(false)
+                        .setPositiveButton("Yes") { _, _ ->
+                            signOut()
+                        }
+                        .setNegativeButton("No"){_,_->}
+                        .show()
+                }
+            }
+        }
+        mainViewModel.observeAll(this)
         startObserveForUi()
         startObserveForOpenTabs()
         startObserveForActionBar()
@@ -242,8 +273,8 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
             lichessAuthLauncherWithStartBroadcast.launch(authService.getLichessAuthIntent())
         } else {
             mainViewModel.startBroadcast()
-            mainViewModel.broadcastRound.value?.value?.let { broadcastRound ->
-                openCustomChromeTab(broadcastRound.url)
+            mainViewModel.broadcastGame.value?.value?.let { broadcastGame ->
+                openCustomChromeTab(broadcastGame.url)
             }
         }
     }
@@ -315,7 +346,7 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
             }
         }
 
-        mainViewModel.broadcastRound.observe(this) { broadcastEvent ->
+        mainViewModel.broadcastGame.observe(this) { broadcastEvent ->
             if (broadcastEvent?.receive() == true && broadcastEvent.value != null) {
                 openCustomChromeTab(broadcastEvent.value.url)
             }
@@ -650,8 +681,21 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
             }
         }
 
-        // always observe the MediatorLiveData, so that it is kept up to date even when using getValue()
-        mainViewModel.isOnlineGameActive.observe(this) {}
-        mainViewModel.isOnlineGameOver.observe(this) {}
+        mainViewModel.uiOAuthState.observe(this){authState ->
+            when(authState){
+                null -> {
+                }
+                is WebManager.UiOAuthState.NotAuthorized, is WebManager.UiOAuthState.AuthorizationLoading -> {
+                    signInMainText.text = getString(R.string.not_signed_in_button_primary)
+                    signInSecondaryText.text = getString(R.string.not_signed_in_button_secondary)
+
+                }
+                is WebManager.UiOAuthState.Authorized -> {
+                    signInMainText.text = authState.userInfo.username
+                    signInSecondaryText.text = getString(R.string.signed_in_button_secondary)
+                }
+            }
+        }
+
     }
 }

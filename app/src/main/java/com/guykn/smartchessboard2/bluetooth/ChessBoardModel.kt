@@ -33,6 +33,10 @@ class ChessBoardModel @Inject constructor(val gson: Gson) {
             // a player being named "bluetooth" means that they are controlled by an external bluetooth source (this device), which means it's an online game.
             return white == "bluetooth" || black == "bluetooth"
         }
+
+        fun isTwoPlayerGame(): Boolean{
+            return white == "human" && black == "human"
+        }
     }
 
     data class BoardState(

@@ -58,7 +58,7 @@ class MainService : LifecycleService() {
         // When a new game in a broadcast starts while the user is viewing another broadcast,
         // take the user back to the mainActivity so they can be sent to the new broadcast.
         coroutineScope.launch {
-            repository.broadcastRound.combinePairs(repository.customTabNavigationManager.isTabShown)
+            repository.broadcastGame.combinePairs(repository.customTabNavigationManager.isTabShown)
                 .collect { (broadcastEvent, isTabShown) ->
                 if (!broadcastEvent.recieved && broadcastEvent.value != null && isTabShown) {
                     val intent = Intent(this@MainService, MainActivity::class.java)

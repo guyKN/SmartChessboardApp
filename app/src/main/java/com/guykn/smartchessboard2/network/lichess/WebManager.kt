@@ -300,6 +300,30 @@ class WebManager @Inject constructor(
         }
     }
 
+    suspend fun getGameInBroadcastRound(broadcastRound: LichessApi.BroadcastRound): LichessApi.BroadcastRoundResponse.BroadcastGame? {
+        val authorization: String = formatAuthHeader(getFreshToken())
+        val response = lichessApi.getBroadcastRound(authorization, broadcastRound.id)
+        when (response.code()) {
+            200 -> {
+                response.body()?.let { broadcastRoundResponse ->
+                    return if (broadcastRoundResponse.games.isNotEmpty()){
+                        broadcastRoundResponse.games[0]
+                    }else{
+                        null
+                    }
+                }
+                    ?: throw GenericNetworkException("Response code was 200, but body was null when getting broadcast game. ")
+            }
+            401 -> {
+                Log.w(TAG, "Authorization is invalid or has expired, signing out. ")
+                signOut()
+                throw NotSignedInException("Error pushing move to game: Received http code 401 unauthorized. ")
+            }
+            429 -> on429httpStatus()
+            else -> throw GenericNetworkException("Received http error code: ${response.code()} when getting broadcast game. ")
+        }
+    }
+
     val gameEvents: Flow<LichessApi.GameEvent> = flow<LichessApi.GameEvent> {
         networkCall {
             val authorization: String = formatAuthHeader(getFreshToken())

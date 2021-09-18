@@ -13,6 +13,7 @@ import com.guykn.smartchessboard2.network.SavedBroadcastTournament
 import com.guykn.smartchessboard2.network.lichess.BoolEvent
 import com.guykn.smartchessboard2.network.lichess.LichessApi
 import com.guykn.smartchessboard2.network.lichess.LichessApi.BroadcastRound
+import com.guykn.smartchessboard2.network.lichess.LichessApi.BroadcastRoundResponse.BroadcastGame
 import com.guykn.smartchessboard2.network.lichess.WebManager
 import com.guykn.smartchessboard2.network.oauth2.GenericNetworkException
 import com.guykn.smartchessboard2.network.oauth2.NetworkException
@@ -37,6 +38,7 @@ import javax.inject.Inject
 
 typealias BroadcastEvent = EventWithValue<BroadcastRound?>
 typealias LichessGameEvent = EventWithValue<LichessApi.Game?>
+typealias BroadcastGameEvent = EventWithValue<BroadcastGame?>
 
 @ServiceScoped
 class Repository @Inject constructor(
@@ -59,7 +61,9 @@ class Repository @Inject constructor(
     private var isBroadcastActive = MutableStateFlow<Boolean>(false)
 
     private val _broadcastRound = MutableStateFlow<BroadcastEvent>(BroadcastEvent(null))
-    val broadcastRound = _broadcastRound as StateFlow<BroadcastEvent>
+
+    private val _broadcastGame = MutableStateFlow<BroadcastGameEvent>(BroadcastGameEvent(null))
+    val broadcastGame = _broadcastGame as StateFlow<BroadcastGameEvent>
 
     private val isOnlineGameActive = AtomicBoolean(false)
 
@@ -89,8 +93,10 @@ class Repository @Inject constructor(
         MutableStateFlow(PgnFilesUploadState.NotUploading)
     val pgnFilesUploadState: StateFlow<PgnFilesUploadState> = _pgnFilesUploadState
 
-    private val _isLoadingBroadcast: MutableStateFlow<Boolean> = MutableStateFlow(false)
-    val isLoadingBroadcast: StateFlow<Boolean> = _isLoadingBroadcast
+    val isLoadingBroadcast: Flow<Boolean> =
+        isBroadcastActive.combine(broadcastGame) { isBroadcastActive, broadcastGame ->
+            isBroadcastActive && broadcastGame.value == null
+        }
 
     val isLoadingOnlineGame: StateFlow<BoolEvent> = webManager.isLoadingOnlineGame
 
@@ -103,8 +109,12 @@ class Repository @Inject constructor(
             var prevJob: Job? = null
             var prevGameId: String? = null
             chessBoardModel.boardState.combinePairs(isBroadcastActive)
-                .collect { (boardState, isActive) ->
-                    if (!isActive) {
+                .collect { (boardState, isBroadcastActive) ->
+                    Log.d(
+                        TAG,
+                        "collected (boardState, isBroadcastActive).\nboardState: $boardState\nisBroadcastActive: $isBroadcastActive"
+                    )
+                    if (!isBroadcastActive) {
                         return@collect
                     }
                     val pgn = boardState?.pgn ?: return@collect
@@ -112,9 +122,14 @@ class Repository @Inject constructor(
                     prevJob = launch {
                         val currentGameId = chessBoardModel.gameInfo.value?.gameId
                         val broadcastRound: BroadcastRound? = if (prevGameId != currentGameId) {
-                            createBroadcastRoundAndRetry()
+//                            if (chessBoardModel.gameActive.value != true) {
+//                                Log.d(TAG, "gameActive not true. Returning. ")
+//                                // if starting a broadcast for a new game, but that game is already over, don't upload it.
+//                                return@launch
+//                            }
+                            createBroadcastRoundUntilSuccess()
                         } else {
-                            _broadcastRound.value.value ?: createBroadcastRoundAndRetry()
+                            _broadcastRound.value.value ?: createBroadcastRoundUntilSuccess()
                         }
                         if (broadcastRound == null) {
                             return@launch
@@ -122,11 +137,13 @@ class Repository @Inject constructor(
                         prevGameId = currentGameId
                         // try to push to the broadcast until you succeed, retrying the request on errors.
                         while (true) {
+                            Log.d(TAG, "inside of loop to push to broadcast. ")
                             yield()
                             // todo: replace this big chunk of code with a different method
                             try {
-                                Log.d(TAG, "pushing pgn to broadcast")
+                                Log.d(TAG, "pushing pgn to broadcast: $pgn")
                                 webManager.pushToBroadcast(broadcastRound, pgn)
+                                updateBroadcastGameUrl()
                                 break
                             } catch (e: Exception) {
                                 when (e) {
@@ -327,13 +344,14 @@ class Repository @Inject constructor(
         eventBus.successEvents.value = SuccessEvent.SignOutSuccess()
     }
 
-
     fun startBroadcast() {
-        if (chessBoardModel.gameInfo.value?.isOnlineGame() == true) {
-            eventBus.errorEvents.value = ErrorEvent.BroadcastCreatedWhileOnlineGameActive()
-            return
+        coroutineScope.launch {
+            // Only broadcast 2 player games.
+            if (chessBoardModel.gameInfo.value?.isTwoPlayerGame() != true) {
+                startTwoPlayerGame(fromUi = false)
+            }
+            isBroadcastActive.value = true
         }
-        isBroadcastActive.value = true
     }
 
     fun stopBroadcast() {
@@ -348,8 +366,6 @@ class Repository @Inject constructor(
             }
     }
 
-    // todo: test round names
-
     private suspend fun createBroadcastRound(): BroadcastRound {
         val broadcastTournament = getFreshBroadcastTournament()
         val roundNumber = savedBroadcastTournament.numRounds
@@ -357,61 +373,105 @@ class Repository @Inject constructor(
 
         val broadcastRound = webManager.createBroadcastRound(
             broadcastTournament = broadcastTournament,
-            name  = "Game $roundNumber"
+            name = "Game $roundNumber"
         )
         _broadcastRound.value = BroadcastEvent(broadcastRound)
         return broadcastRound
     }
 
     // calls createBroadcastRound() until no IOException occurs when creating it. In case of other exceptions, reports them and returns null.
-    private suspend fun createBroadcastRoundAndRetry(): BroadcastRound? {
-        _isLoadingBroadcast.value = true
-        try {
-            while (true) {
-                yield()
-                try {
-                    Log.d(TAG, "creating broadcast round")
-                    return createBroadcastRound()
-                } catch (e: Exception) {
-                    when (e) {
-                        is NotSignedInException, is AuthorizationException -> {
-                            Log.w(
-                                TAG,
-                                "Error with authorization to lichess creating broadcast round: ${e.message} "
-                            )
-                            eventBus.errorEvents.value =
-                                ErrorEvent.NoLongerAuthorizedError()
-                            return null
-                        }
-                        is GenericNetworkException, is JsonParseException -> {
-                            // in case of an exception that can't be recovered from, stop retrying the request
-                            Log.w(TAG, "Error creating broadcast round: ${e.message}")
-                            eventBus.errorEvents.value =
-                                ErrorEvent.MiscError("Couldn't create broadcast. ")
-                            return null
-                        }
-                        is TooManyRequestsException -> {
-                            Log.w(
-                                TAG,
-                                "Too many request sent to lichess, please wait and try again later."
-                            )
-                            eventBus.errorEvents.value =
-                                ErrorEvent.TooManyRequests(e.timeForValidRequests)
-                            return null
-                        }
-                        is IOException -> {
-                            Log.w(TAG, "Failed creating broadcast: ${e.message}")
-                            eventBus.errorEvents.value = ErrorEvent.InternetIOError()
-                            delay(2500)
-                            continue
-                        }
-                        else -> throw e
+    private suspend fun createBroadcastRoundUntilSuccess(): BroadcastRound? {
+        _broadcastGame.value =
+            BroadcastGameEvent(null) // when a new broadcast game is created, the broadcast round inside of it is invalidated.
+        while (true) {
+            yield()
+            try {
+                Log.d(TAG, "creating broadcast round")
+                return createBroadcastRound()
+            } catch (e: Exception) {
+                when (e) {
+                    is NotSignedInException, is AuthorizationException -> {
+                        Log.w(
+                            TAG,
+                            "Error with authorization to lichess creating broadcast round: ${e.message} "
+                        )
+                        eventBus.errorEvents.value =
+                            ErrorEvent.NoLongerAuthorizedError()
+                        return null
                     }
+                    is GenericNetworkException, is JsonParseException -> {
+                        // in case of an exception that can't be recovered from, stop retrying the request
+                        Log.w(TAG, "Error creating broadcast round: ${e.message}")
+                        eventBus.errorEvents.value =
+                            ErrorEvent.MiscError("Couldn't create broadcast. ")
+                        return null
+                    }
+                    is TooManyRequestsException -> {
+                        Log.w(
+                            TAG,
+                            "Too many request sent to lichess, please wait and try again later."
+                        )
+                        eventBus.errorEvents.value =
+                            ErrorEvent.TooManyRequests(e.timeForValidRequests)
+                        return null
+                    }
+                    is IOException -> {
+                        Log.w(TAG, "Failed creating broadcast: ${e.message}")
+                        eventBus.errorEvents.value = ErrorEvent.InternetIOError()
+                        delay(2500)
+                        continue
+                    }
+                    else -> throw e
                 }
             }
-        } finally {
-            _isLoadingBroadcast.value = false
+        }
+    }
 
+    private fun updateBroadcastGameUrl() {
+        coroutineScope.launch {
+            try {
+                if (_broadcastGame.value.value != null) {
+                    // no need to update the broadcast game if it's already loaded.
+                    return@launch
+                }
+                _broadcastRound.value.value?.let { round ->
+                    _broadcastGame.value =
+                        BroadcastGameEvent(webManager.getGameInBroadcastRound(round))
+                } ?: Log.w(
+                    TAG,
+                    "updateBroadcastGame called while broadcastRound.value.value==null."
+                )
+            } catch (e: Exception) {
+                when (e) {
+                    is NotSignedInException, is AuthorizationException -> {
+                        Log.w(
+                            TAG,
+                            "Error with authorization to lichess when getting game URL in broadcast round: ${e.message} "
+                        )
+                        eventBus.errorEvents.value =
+                            ErrorEvent.NoLongerAuthorizedError()
+                    }
+                    is GenericNetworkException, is JsonParseException -> {
+                        // in case of an exception that can't be recovered from, stop retrying the request
+                        Log.w(TAG, "Error getting game URL in broadcast round: ${e.message}")
+                        eventBus.errorEvents.value =
+                            ErrorEvent.MiscError("Couldn't create broadcast. ")
+                    }
+                    is TooManyRequestsException -> {
+                        Log.w(
+                            TAG,
+                            "Too many request sent to lichess, please wait and try again later."
+                        )
+                        eventBus.errorEvents.value =
+                            ErrorEvent.TooManyRequests(e.timeForValidRequests)
+                    }
+                    is IOException -> {
+                        Log.w(TAG, "Failed to get game URL in broadcast round: ${e.message}")
+                        eventBus.errorEvents.value = ErrorEvent.InternetIOError()
+                    }
+                    else -> throw e
+                }
+            }
         }
     }
 
@@ -425,24 +485,33 @@ class Repository @Inject constructor(
         }
     }
 
-    suspend fun startTwoPlayerGame() {
+    suspend fun startTwoPlayerGame(fromUi: Boolean = true) {
         startOfflineGame(
             GameStartRequest(
                 enableEngine = false,
                 // engineColor and engineLevel don't matter, but they must be sent as part of a gameStartRequest, so fill them in with arbitrary values.
                 engineColor = "black",
                 engineLevel = 5
-            )
+            ),
+            fromUi = fromUi
         )
     }
 
-    suspend fun startOfflineGame(gameStartRequest: GameStartRequest) {
+
+    // If fromUi is true, then this offline game was started by a button click from the UI, meaning we need to send a Success message,
+    // and we need to stop the broadcast if it's ongoing.
+    suspend fun startOfflineGame(gameStartRequest: GameStartRequest, fromUi: Boolean = true) {
         stopOnlineGame()
+        if (fromUi) {
+            stopBroadcast()
+        }
         try {
             bluetoothManager.writeMessage(
                 clientToServerMessageProvider.startNormalGame(gameStartRequest)
             )
-            eventBus.successEvents.value = SuccessEvent.StartOfflineGameSuccess()
+            if (fromUi) {
+                eventBus.successEvents.value = SuccessEvent.StartOfflineGameSuccess()
+            }
         } catch (e: IOException) {
             Log.w(TAG, "Error writing starting offline Game: ${e.message}")
             eventBus.errorEvents.value = ErrorEvent.BluetoothIOError()
