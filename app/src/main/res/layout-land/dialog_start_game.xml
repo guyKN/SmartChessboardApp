@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="10dp"
+    android:orientation="horizontal">
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/difficulty_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="8dp"
+            android:text="@string/computer_strength"
+            android:textSize="22sp" />
+
+        <com.shawnlin.numberpicker.NumberPicker
+            android:id="@+id/ai_difficulty_selector"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginBottom="20dp"
+            app:np_dividerColor="?colorOnBackground"
+            app:np_max="8"
+            app:np_min="1"
+            app:np_orientation="horizontal"
+            app:np_selectedTextColor="?colorOnBackground"
+            app:np_textColor="?colorOnBackground"
+            app:np_wrapSelectorWheel="false" />
+    </LinearLayout>
+
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/ai_color_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="@string/play_as"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="16dp"
+            android:textSize="22sp" />
+
+        <com.addisonelliott.segmentedbutton.SegmentedButtonGroup
+            android:id="@+id/buttonGroup_select_color"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_margin="7dp"
+            app:borderColor="?colorSecondary"
+            app:borderWidth="2dp"
+            app:divider="?colorSecondary"
+            app:dividerPadding="10dp"
+            app:dividerWidth="2dp"
+            app:position="0"
+            app:radius="30dp"
+            app:ripple="true"
+            app:selectedBackground="?colorPrimary">
+
+            <!--        android:background="?colorOnPrimary"-->
+
+
+            <com.addisonelliott.segmentedbutton.SegmentedButton
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:padding="10dp"
+                app:selectedTextColor="?colorOnPrimary"
+                app:text="White"
+                app:textColor="?colorOnBackground" />
+
+            <com.addisonelliott.segmentedbutton.SegmentedButton
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:padding="10dp"
+                app:drawableGravity="top"
+                app:selectedTextColor="?colorOnPrimary"
+                app:text="Black"
+                app:textColor="?colorOnBackground" />
+
+        </com.addisonelliott.segmentedbutton.SegmentedButtonGroup>
+    </LinearLayout>
+
+
+</LinearLayout>
