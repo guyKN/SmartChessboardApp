@@ -62,7 +62,7 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
         const val TAG = "MA_MainActivity"
         const val REQUEST_ENABLE_BLUETOOTH = 420
 
-        const val isUiTest = true
+        const val isUiTest = false
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
