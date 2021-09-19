@@ -32,7 +32,6 @@ import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
-// todo: replace destroy callbacks with lifecycle-aware components
 // TODO: 6/30/2021 Make sure everything is closed properly when the service is destroyed
 // todo: make sure that every exception that is thrown has a place to be caught. 
 // TODO: 8/27/2021 extract all stateFlows outisde of the repository itself, since it sometimes causes akward moments where other classes need a refrence to the repository
@@ -87,8 +86,7 @@ class Repository @Inject constructor(
     sealed class PgnFilesUploadState {
         object NotUploading : PgnFilesUploadState()
         object ExchangingBluetoothData : PgnFilesUploadState()
-        data class UploadingToLichess(val numFilesUploaded: Int, val numFilesTotal: Int) :
-            PgnFilesUploadState()
+        object UploadingToLichess : PgnFilesUploadState()
     }
 
     private val isRequestingPgnFiles: AtomicBoolean = AtomicBoolean(false)
@@ -683,9 +681,8 @@ class Repository @Inject constructor(
 
                 try {
                     val file = gson.fromJson(messageData, PgnFile::class.java)
-                    // todo: if using a progress bar, also show the total number of files
                     _pgnFilesUploadState.value =
-                        PgnFilesUploadState.UploadingToLichess(0, 0)
+                        PgnFilesUploadState.UploadingToLichess
                     webManager.importGame(file.pgn)
                     try {
                         bluetoothManager.writeMessage(
@@ -744,5 +741,6 @@ class Repository @Inject constructor(
     fun destroy() {
         webManager.destroy()
         bluetoothManager.destroy()
+
     }
 }

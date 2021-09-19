@@ -61,7 +61,6 @@ class ServiceConnector @Inject constructor(@ApplicationContext private val conte
     }
 
     private fun startAndBindService() {
-        // TODO: 5/9/2021 is Starting the service necessary, or is it OK to just bind
         val intent = Intent(context, MainService::class.java)
         context.startForegroundService(intent)
         val success = context.bindService(

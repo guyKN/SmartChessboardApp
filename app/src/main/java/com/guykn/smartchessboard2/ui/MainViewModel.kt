@@ -205,12 +205,18 @@ class MainViewModel @Inject constructor(val serviceConnector: ServiceConnector) 
     }
 
     fun startOfflineGame(gameStartRequest: GameStartRequest) {
-        // todo: handle this method being called while _isOfflineGameLoading.value == true
         viewModelScope.launch {
-            val repository = serviceConnector.awaitConnected()
+            if (_isOfflineGameLoading.value == true){
+                // don't load the offline game twice.
+                return@launch
+            }
             _isOfflineGameLoading.value = true
-            repository.startOfflineGame(gameStartRequest)
-            _isOfflineGameLoading.value = false
+            try {
+                val repository = serviceConnector.awaitConnected()
+                repository.startOfflineGame(gameStartRequest)
+            }finally {
+                _isOfflineGameLoading.value = false
+            }
         }
     }
 

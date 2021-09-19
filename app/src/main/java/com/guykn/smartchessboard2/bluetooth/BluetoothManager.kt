@@ -13,8 +13,6 @@ import java.io.IOException
 import javax.inject.Inject
 import kotlin.system.measureTimeMillis
 
-// todo: try automatically reconnect if bluetooth disconnects
-
 @ServiceScoped
 class BluetoothManager @Inject constructor(
     private val coroutineScope: CoroutineScope,

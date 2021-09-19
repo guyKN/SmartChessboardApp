@@ -61,6 +61,8 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
     companion object {
         const val TAG = "MA_MainActivity"
         const val REQUEST_ENABLE_BLUETOOTH = 420
+
+        const val isUiTest = true
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -395,6 +397,7 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
 
         var bluetoothMessageDialog: Dialog? = null
         var loadingBroadcastDialog: Dialog? = null
+        var loadingLichessDialog: ProgressDialog? = null
         var uploadingPgnDialog: ProgressDialog? = null
         var signInProgressBar: ProgressDialog? = null
 
@@ -412,7 +415,9 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
                         .setMessage(R.string.bluetooth_not_supported_description)
                         .setCancelable(false)
                         .setPositiveButton(getString(R.string.bluetooth_not_supported_button)) { _, _ ->
-                            finish()
+                            if (!isUiTest) {
+                                finish()
+                            }
                         }
                         .show()
                 }
@@ -633,11 +638,13 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
             }
         }
 
-        mainViewModel.isAwaitingLaunchLichess.observe(this) { isLoading ->
-            loadingBroadcastDialog?.dismiss()
-            loadingBroadcastDialog = null
-            if (isLoading == true) {
-                loadingBroadcastDialog = ProgressDialog.show(
+        mainViewModel.isAwaitingLaunchLichess.observe(this) { isAwaitingLaunchLichess ->
+            Log.d(TAG, "mainViewModel.isAwaitingLaunchLichess changed. isAwaitingLaunchLichess=$isAwaitingLaunchLichess")
+            loadingLichessDialog?.dismiss()
+            loadingLichessDialog = null
+            if (isAwaitingLaunchLichess == true) {
+                Log.d(TAG, "Showing progress bar.")
+                loadingLichessDialog = ProgressDialog.show(
                     this,
                     getString(R.string.loading_generic),
                     getString(R.string.loading_start_online_game),
