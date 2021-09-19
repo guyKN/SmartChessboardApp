@@ -6,7 +6,7 @@
     <string name="menu_view_games">View Games</string>
     <string name="computer_strength">Computer Strength:</string>
     <string name="play_as">Play As:</string>
-    <string name="title_play_against_computer">Play vs. Computer</string>
+    <string name="title_play_against_computer">Play Vs. Computer</string>
     <string name="start_game">Start Game</string>
     <string name="settings_learning_mode">Learning Mode</string>
     <string name="settings_learning_mode_description">Show all legal moves when picking up a piece</string>
@@ -67,6 +67,7 @@
     <string name="invalid_game_title">Invalid Game</string>
     <string name="invalid_game_description">You have chosen an invalid game mode. Only unlimited, classic, and rapid time controls are supported. No rules variants are supported. </string>
     <string name="invalid_game_action">OK</string>
+    <string name="start_game_cancel">Cancel</string>
 
 
 </resources>

@@ -84,6 +84,7 @@ class StartOfflineGameDialog : DialogFragment() {
             .setPositiveButton(R.string.start_game) { _, _ ->
                 callback.handleGameStartRequest(currentGameStartRequest())
             }
+//            .setNegativeButton(R.string.start_game_cancel){ _, _->}
             .create()
 
         return alertDialog
