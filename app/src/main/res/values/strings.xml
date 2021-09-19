@@ -1,42 +1,34 @@
 <resources>
     <string name="app_name">Smart Chessboard</string>
     <string name="service_description">Connects with the Bluetooth Chessboard and allows online play.</string>
-    <string name="not_signed_in">Not Signed In</string>
-    <string name="sign_in">Sign In</string>
-    <string name="sign_out">Sign Out</string>
     <string name="menu_broadcast_game">Broadcast Game</string>
-    <string name="stop_broadcast">Stop Broadcast</string>
     <string name="menu_play_online">Play Online</string>
-    <string name="learning_mode">Learning Mode</string>
     <string name="menu_view_games">View Games</string>
     <string name="computer_strength">Computer Strength:</string>
     <string name="play_as">Play As:</string>
     <string name="title_play_against_computer">Play vs. Computer</string>
-    <string name="menu_play_against_computer">Play vs. Computer</string>
     <string name="start_game">Start Game</string>
-    <string name="menu_upload_games">View Games</string>
     <string name="settings_learning_mode">Learning Mode</string>
     <string name="settings_learning_mode_description">Show all legal moves when picking up a piece</string>
     <string name="settings_test_chessboard_description">LEDs will turn on wherever there is a piece</string>
-    <string name="cancel">Cancel</string>
-    <string name="menu_2_player_game">Play 2 Player Game</string>
     <string name="settings">Options</string>
     <string name="menu_play_offline">Play Vs. Computer</string>
-    <string name="sign_in_to_lichess">Sign In To Lichess</string>
     <string name="not_signed_in_button_primary">Lichess</string>
     <string name="not_signed_in_button_secondary">Sign In</string>
     <string name="signed_in_button_secondary">Sign Out</string>
     <string name="settings_test_chessboard">Test Chessboard</string>
     <string name="settings_delete_saved_games">Delete Games</string>
-    <string name="settings_delete_all_games_description">Games saved on the chessboard will be deleted. Games that were already uploaded to Lichess will remain.</string>
     <string name="confirm_archive_all_pgn_title">Confirm Deletion?</string>
     <string name="confirm_archive_all_pgn_description">Are you sure you want to delete all games? Games saved on the Chessboard will be deleted. Games that have already been uploaded to Lichess will remain. </string>
     <string name="confirm_archive_all_pgn_yes">OK</string>
     <string name="confirm_archive_all_pgn_no">Cancel</string>
-    <string name="archive_all_pgn_nothing_to_archive">No Games Saved On Chessboard</string>
-    <string name="archive_all_pgn_num_files">%1$d games available to delete</string>
+    <string name="archive_all_pgn_nothing_to_archive">No games available to delete</string>
+    <plurals name="archive_all_pgn_num_files">
+        <item quantity="one">%d game available to delete</item>
+        <item quantity="other">%d games available to delete</item>
+    </plurals>
     <string name="bluetooth_error_title">Bluetooth Error</string>
-    <string name="bluetooth_not_supported_description">Your Device does not support bluetooth.</string>
+    <string name="bluetooth_not_supported_description">Your device does not support bluetooth.</string>
     <string name="bluetooth_not_supported_button">Close App</string>
     <string name="bluetooth_not_enabled_message">Bluetooth is not turned on.</string>
     <string name="enable_bluetooth">Turn On Bluetooth</string>
@@ -51,16 +43,19 @@
     <string name="success_learning_mode_enabled">Learning Mode Enabled</string>
     <string name="success_learning_mode_disabled">Learning Mode Disabled</string>
     <string name="success_sign_in">Signed In as %1$s</string>
-    <string name="success_archive_games">Deleted %1$d games</string>
+    <plurals name="success_archive_games">
+        <item quantity="one">Deleted %1$d game</item>
+        <item quantity="other">Deleted %1$d games</item>
+    </plurals>
     <string name="success_sign_out">Signed Out Successfully</string>
     <string name="success_start_game">Game Started</string>
     <string name="error_internet_io">No Internet. </string>
     <string name="error_generic">Error: %1$s</string>
     <string name="error_unexpected_sign_out">Unexpectedly Signed Out of Lichess</string>
     <string name="error_unexpected_sign_out_action">Sign In</string>
-    <string name="error_sign_in">Could Not Sign In</string>
+    <string name="error_sign_in">Failed to Sign In</string>
     <string name="error_sign_in_action">Try Again</string>
-    <string name="error_429">Lichess Servers are overwhelmed. Please try again in %1$d seconds. </string>
+    <string name="error_429">Lichess Servers are overwhelmed. Please try again in %1$d seconds.</string>
     <string name="loading_generic">Loading…</string>
     <string name="loading_creating_broadcast">Creating Broadcast</string>
     <string name="loading_start_online_game">Connecting To Lichess</string>
@@ -74,8 +69,4 @@
     <string name="invalid_game_action">OK</string>
 
 
-    <string-array name="player_color_names">
-        <item>White</item>
-        <item>Black</item>
-    </string-array>
 </resources>

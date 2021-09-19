@@ -552,7 +552,7 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
                 is EventBus.SuccessEvent.ArchiveAllPgnSuccess -> {
                     Snackbar.make(
                         coordinatorLayout,
-                        getString(R.string.success_archive_games, successEvent.numFiles),
+                        resources.getQuantityString(R.plurals.success_archive_games, successEvent.numFiles, successEvent.numFiles),
                         Snackbar.LENGTH_SHORT
                     )
                         .show()
@@ -605,11 +605,11 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
                 }
                 is EventBus.ErrorEvent.TooManyRequests -> {
                     val timeUntilServerAvailable =
-                        errorEvent.timeForValidRequests - System.currentTimeMillis()
-                    val timeUntilServerAvailableSeconds = timeUntilServerAvailable / 1000
+                        (errorEvent.timeForValidRequests - System.currentTimeMillis())
+                    val timeUntilServerAvailableSeconds = (timeUntilServerAvailable / 1000).toInt()
                     Snackbar.make(
                         coordinatorLayout,
-                        getString(R.string.error_429, timeUntilServerAvailable),
+                        resources.getString(R.string.error_429, timeUntilServerAvailableSeconds),
                         Snackbar.LENGTH_LONG
                     )
                         .show()

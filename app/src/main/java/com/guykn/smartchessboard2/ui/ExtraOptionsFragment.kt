@@ -39,7 +39,7 @@ class ExtraOptionsFragment : PreferenceFragmentCompat() {
             true
         }
 
-        testLedsButton.setOnPreferenceClickListener{
+        testLedsButton.setOnPreferenceClickListener {
             mainViewModel.blinkLeds()
             true
         }
@@ -52,7 +52,7 @@ class ExtraOptionsFragment : PreferenceFragmentCompat() {
                 .setPositiveButton(getString(R.string.confirm_archive_all_pgn_yes)) { _, _ ->
                     mainViewModel.archiveAllPgn()
                 }
-                .setNegativeButton(getString(R.string.confirm_archive_all_pgn_no)){ _, _-> }
+                .setNegativeButton(getString(R.string.confirm_archive_all_pgn_no)) { _, _ -> }
                 .show()
             true
         }
@@ -69,15 +69,17 @@ class ExtraOptionsFragment : PreferenceFragmentCompat() {
         mainViewModel.chessBoardSettings.observe(viewLifecycleOwner) { chessBoardSettings ->
             learningModeSwitch.isChecked = chessBoardSettings?.learningMode ?: return@observe
         }
-        mainViewModel.numGamesToUpload.observe(viewLifecycleOwner){ numGames ->
-            when(numGames){
-                0, null->{
+        mainViewModel.numGamesToUpload.observe(viewLifecycleOwner) { numGames ->
+            when (numGames) {
+                0, null -> {
                     archiveAllPgnButton.isEnabled = false
-                    archiveAllPgnButton.summary = getString(R.string.archive_all_pgn_nothing_to_archive)
+                    archiveAllPgnButton.summary =
+                        getString(R.string.archive_all_pgn_nothing_to_archive)
                 }
-                else->{
+                else -> {
                     archiveAllPgnButton.isEnabled = true
-                    archiveAllPgnButton.summary = getString(R.string.archive_all_pgn_num_files, numGames)
+                    archiveAllPgnButton.summary =
+                        resources.getQuantityString(R.plurals.archive_all_pgn_num_files, numGames, numGames)
                 }
             }
         }
