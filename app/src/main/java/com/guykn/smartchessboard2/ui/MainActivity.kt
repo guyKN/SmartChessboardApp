@@ -20,6 +20,7 @@ import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.Toolbar
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.fragment.app.commit
 import com.google.android.material.snackbar.Snackbar
@@ -55,6 +56,7 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
     private lateinit var signInButton: LinearLayout
     private lateinit var signInMainText: TextView
     private lateinit var signInSecondaryText: TextView
+//    private lateinit var toolbarIcon: ImageView
 
     companion object {
         const val TAG = "MA_MainActivity"
@@ -69,9 +71,11 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
         signInMainText = findViewById(R.id.sign_in_main)!!
         signInSecondaryText = findViewById(R.id.sign_in_secondary)!!
         signInButton = findViewById(R.id.sign_in_button)!!
+//        toolbarIcon = findViewById(R.id.toolbar_icon)!!
 
 
-        setSupportActionBar(findViewById(R.id.toolbar)!!)
+        val toolbar: Toolbar = findViewById(R.id.toolbar)!!
+        setSupportActionBar(toolbar)
 
         authService = AuthorizationService(this)
 
@@ -86,24 +90,17 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
         customTabManager.mayLaunchUrl(LICHESS_BASE_URL)
 
         signInButton.setOnClickListener {
-            when(mainViewModel.uiOAuthState.value){
+            when (mainViewModel.uiOAuthState.value) {
                 null -> {
                 }
                 is WebManager.UiOAuthState.NotAuthorized -> {
                     signIn()
                 }
-                is WebManager.UiOAuthState.AuthorizationLoading->{
+                is WebManager.UiOAuthState.AuthorizationLoading -> {
                     Log.w(TAG, "Sign in button pressed while in the middle of signing in. ")
                 }
                 is WebManager.UiOAuthState.Authorized -> {
-                    AlertDialog.Builder(this)
-                        .setTitle("Are You Sure You Want to Sign Out?")
-                        .setCancelable(false)
-                        .setPositiveButton("Yes") { _, _ ->
-                            signOut()
-                        }
-                        .setNegativeButton("No"){_,_->}
-                        .show()
+                    showSignOutDialog()
                 }
             }
         }
@@ -122,10 +119,12 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
     override fun onPrepareOptionsMenu(menu: Menu?): Boolean {
         return when (val actionBarState = mainViewModel.actionBarState.value) {
             NORMAL_ACTION_BAR -> {
+//                toolbarIcon.visibility = View.VISIBLE
                 menuInflater.inflate(R.menu.action_bar_menu, menu)
                 true
             }
             SETTINGS_ACTION_BAR -> {
+//                toolbarIcon.visibility = View.GONE
                 true
             }
             else -> error("Invalid value of actionBarState = $actionBarState")
@@ -147,7 +146,7 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
             }
             true
         }
-        android.R.id.home ->{
+        android.R.id.home -> {
             supportFragmentManager.popBackStack()
             true
         }
@@ -324,6 +323,17 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
         customTabManager.openChromeTab(this, url)
     }
 
+    private fun showSignOutDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Are You Sure You Want to Sign Out?")
+            .setCancelable(false)
+            .setPositiveButton("Yes") { _, _ ->
+                signOut()
+            }
+            .setNegativeButton("No") { _, _ -> }
+            .show()
+    }
+
     private fun startObserveForOpenTabs() {
         // If looking for an online game, and an active online game already exists, then open it.
         observeMultiple(
@@ -361,17 +371,17 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
         }
     }
 
-    private fun startObserveForActionBar(){
-        mainViewModel.actionBarState.observe(this){ actionBarState ->
+    private fun startObserveForActionBar() {
+        mainViewModel.actionBarState.observe(this) { actionBarState ->
             invalidateOptionsMenu()
-            when(actionBarState!!){
+            when (actionBarState!!) {
                 NORMAL_ACTION_BAR -> {
                     supportActionBar!!.apply {
                         setTitle(R.string.app_name)
                         setDisplayHomeAsUpEnabled(false)
                     }
                 }
-                SETTINGS_ACTION_BAR->{
+                SETTINGS_ACTION_BAR -> {
                     supportActionBar!!.apply {
                         setTitle(R.string.settings)
                         setDisplayHomeAsUpEnabled(true)
@@ -398,10 +408,10 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
                 }
                 ChessBoardModel.BluetoothState.BLUETOOTH_NOT_SUPPORTED -> {
                     bluetoothMessageDialog = AlertDialog.Builder(this)
-                        .setTitle("Bluetooth Error")
-                        .setMessage("Your Device does not support bluetooth. ")
+                        .setTitle(R.string.bluetooth_error_title)
+                        .setMessage(R.string.bluetooth_not_supported_description)
                         .setCancelable(false)
-                        .setPositiveButton("Close App") { _, _ ->
+                        .setPositiveButton(getString(R.string.bluetooth_not_supported_button)) { _, _ ->
                             finish()
                         }
                         .show()
@@ -409,10 +419,10 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
 
                 ChessBoardModel.BluetoothState.BLUETOOTH_NOT_ENABLED -> {
                     bluetoothMessageDialog = AlertDialog.Builder(this)
-                        .setTitle("Bluetooth Error")
-                        .setMessage("Bluetooth is not enabled. ")
+                        .setTitle(R.string.bluetooth_error_title)
+                        .setMessage(getString(R.string.bluetooth_not_enabled_message))
                         .setCancelable(false)
-                        .setPositiveButton("Enable Bluetooth") { _, _ ->
+                        .setPositiveButton(getString(R.string.enable_bluetooth)) { _, _ ->
                             requestEnableBluetooth()
                         }
                         .show()
@@ -423,8 +433,8 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
                     bluetoothMessageDialog =
                         ProgressDialog.show(
                             this,
-                            "Bluetooth Loading...",
-                            "Bluetooth is turning on",
+                            getString(R.string.bluetooth_loading_title),
+                            getString(R.string.loading_bluetooth_turning_on),
                             true
                         )
 
@@ -433,34 +443,34 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
                     bluetoothMessageDialog =
                         ProgressDialog.show(
                             this,
-                            "Bluetooth Loading...",
-                            "Performing bluetooth scan",
+                            getString(R.string.bluetooth_loading_title),
+                            getString(R.string.loading_bluetooth_scan),
                             true
                         )
                 }
                 ChessBoardModel.BluetoothState.PAIRING -> {
                     bluetoothMessageDialog = ProgressDialog.show(
                         this,
-                        "Bluetooth Loading...",
-                        "Pairing with chessboard",
+                        getString(R.string.bluetooth_loading_title),
+                        getString(R.string.loading_bluetooth_pairing),
                         true
                     )
                 }
                 ChessBoardModel.BluetoothState.CONNECTING -> {
                     bluetoothMessageDialog = ProgressDialog.show(
                         this,
-                        "Bluetooth Loading...",
-                        "Connecting to chessboard",
+                        getString(R.string.bluetooth_loading_title),
+                        getString(R.string.loading_bluetooth_connecting),
                         true
                     )
                 }
 
                 ChessBoardModel.BluetoothState.DISCONNECTED, ChessBoardModel.BluetoothState.CONNECTION_FAILED, ChessBoardModel.BluetoothState.SCAN_FAILED -> {
                     bluetoothMessageDialog = AlertDialog.Builder(this)
-                        .setTitle("Bluetooth Error")
-                        .setMessage("Failed to connect to Bluetooth")
+                        .setTitle(R.string.bluetooth_error_title)
+                        .setMessage(R.string.bluetooth_connection_failed_message)
                         .setCancelable(false)
-                        .setPositiveButton("Try Again") { _, _ ->
+                        .setPositiveButton(R.string.bluetooth_retry) { _, _ ->
                             companionDeviceConnector.refreshBluetoothDevice()
                         }
                         .show()
@@ -480,7 +490,7 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
                 is EventBus.SuccessEvent.BlinkLedsSuccess -> {
                     Snackbar.make(
                         coordinatorLayout,
-                        "Chessboard LEDs are now on",
+                        R.string.success_test_chessboard,
                         resources.getInteger(R.integer.led_test_snackbar_duration)
                     )
                         .show()
@@ -488,7 +498,11 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
                 is EventBus.SuccessEvent.ChangeSettingsSuccess -> {
                     Snackbar.make(
                         coordinatorLayout,
-                        if (successEvent.settings.learningMode) "Learning Mode Enabled" else "Learning Mode Disabled",
+                        if (successEvent.settings.learningMode) {
+                            R.string.success_learning_mode_enabled
+                        } else {
+                            R.string.success_learning_mode_disabled
+                        },
                         Snackbar.LENGTH_SHORT
                     )
                         .show()
@@ -496,7 +510,7 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
                 is EventBus.SuccessEvent.SignInSuccess -> {
                     Snackbar.make(
                         coordinatorLayout,
-                        "Signed in as ${successEvent.userInfo.username}",
+                        getString(R.string.success_sign_in, successEvent.userInfo.username),
                         Snackbar.LENGTH_SHORT
                     )
                         .show()
@@ -504,7 +518,7 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
                 is EventBus.SuccessEvent.SignOutSuccess -> {
                     Snackbar.make(
                         coordinatorLayout,
-                        "Signed Out Successfully",
+                        getString(R.string.success_sign_out),
                         Snackbar.LENGTH_SHORT
                     )
                         .show()
@@ -512,7 +526,7 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
                 is EventBus.SuccessEvent.StartOfflineGameSuccess -> {
                     Snackbar.make(
                         coordinatorLayout,
-                        "Game Started",
+                        getString(R.string.success_start_game),
                         Snackbar.LENGTH_SHORT
                     )
                         .show()
@@ -522,9 +536,9 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
                 }
                 is EventBus.SuccessEvent.UploadGamesPartialSuccess -> {
                     AlertDialog.Builder(this)
-                        .setTitle("Not All Games Uploaded")
-                        .setMessage("Because of Lichess' API limits, not all games on the chessboard have been uploaded. To see all games, wait a few minutes and try again.")
-                        .setPositiveButton("OK") { _, _ -> }
+                        .setTitle(getString(R.string.not_all_games_uploaded_title))
+                        .setMessage(getString(R.string.not_all_games_uploaded_description))
+                        .setPositiveButton(getString(R.string.not_all_games_uploaded_action)) { _, _ -> }
                         .setOnDismissListener {
                             openSavedGamesTab()
                         }
@@ -533,7 +547,7 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
                 is EventBus.SuccessEvent.ArchiveAllPgnSuccess -> {
                     Snackbar.make(
                         coordinatorLayout,
-                        "Deleted ${successEvent.numFiles} games",
+                        getString(R.string.success_archive_games, successEvent.numFiles),
                         Snackbar.LENGTH_SHORT
                     )
                         .show()
@@ -552,15 +566,16 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
                 is EventBus.ErrorEvent.InternetIOError -> {
                     Snackbar.make(
                         coordinatorLayout,
-                        "Could Not Connect to Lichess. Please check your connection and try again. ",
+                        getString(R.string.error_internet_io),
                         Snackbar.LENGTH_SHORT
                     )
                         .show()
                 }
+                // todo: give errors better descriptions
                 is EventBus.ErrorEvent.MiscError -> {
                     Snackbar.make(
                         coordinatorLayout,
-                        "Error: ${errorEvent.description}",
+                        getString(R.string.error_generic, errorEvent.description),
                         Snackbar.LENGTH_SHORT
                     )
                         .show()
@@ -568,19 +583,19 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
                 is EventBus.ErrorEvent.NoLongerAuthorizedError -> {
                     Snackbar.make(
                         coordinatorLayout,
-                        "Unexpectedly signed out. ",
+                        getString(R.string.error_unexpected_sign_out),
                         Snackbar.LENGTH_SHORT
                     )
-                        .setAction("Sign In") { signIn() }
+                        .setAction(getString(R.string.error_unexpected_sign_out_action)) { signIn() }
                         .show()
                 }
                 is EventBus.ErrorEvent.SignInError -> {
                     Snackbar.make(
                         coordinatorLayout,
-                        "Could Not Sign In",
+                        getString(R.string.error_sign_in),
                         Snackbar.LENGTH_SHORT
                     )
-                        .setAction("Try Again") { signIn() }
+                        .setAction(getString(R.string.error_sign_in_action)) { signIn() }
                         .show()
                 }
                 is EventBus.ErrorEvent.TooManyRequests -> {
@@ -589,26 +604,18 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
                     val timeUntilServerAvailableSeconds = timeUntilServerAvailable / 1000
                     Snackbar.make(
                         coordinatorLayout,
-                        "Lichess Servers are overwhelmed. Please try again in $timeUntilServerAvailableSeconds seconds. ",
+                        getString(R.string.error_429, timeUntilServerAvailable),
                         Snackbar.LENGTH_LONG
                     )
                         .show()
                 }
                 is EventBus.ErrorEvent.IllegalGameSelected -> {
                     AlertDialog.Builder(this)
-                        .setTitle("Invalid Game")
-                        .setMessage("You have chosen an invalid game mode. Only unlimited, classic, and rapid time controls are supported. No rules variants are supported. ")
-                        .setPositiveButton("OK") { _, _ -> }
+                        .setTitle(getString(R.string.invalid_game_title))
+                        .setMessage(getString(R.string.invalid_game_description))
+                        .setPositiveButton(getString(R.string.invalid_game_action)) { _, _ -> }
                         .show()
 
-                }
-                is EventBus.ErrorEvent.BroadcastCreatedWhileOnlineGameActive -> {
-                    Snackbar.make(
-                        coordinatorLayout,
-                        "Can't create broadcast for an online game. ",
-                        Snackbar.LENGTH_LONG
-                    )
-                        .show()
                 }
             }
         }
@@ -619,8 +626,8 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
             if (isLoading) {
                 loadingBroadcastDialog = ProgressDialog.show(
                     this,
-                    null,
-                    "Creating Broadcast",
+                    getString(R.string.loading_generic),
+                    getString(R.string.loading_creating_broadcast),
                     true
                 )
             }
@@ -632,8 +639,8 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
             if (isLoading == true) {
                 loadingBroadcastDialog = ProgressDialog.show(
                     this,
-                    null,
-                    "Loading Online Games",
+                    getString(R.string.loading_generic),
+                    getString(R.string.loading_start_online_game),
                     true
                 )
             }
@@ -650,8 +657,8 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
                     if (uploadingPgnDialog == null) {
                         uploadingPgnDialog = ProgressDialog.show(
                             this,
-                            null,
-                            "Uploading Saved Games",
+                            getString(R.string.loading_generic),
+                            getString(R.string.loading_uploading_games),
                             true
                         )
                     }
@@ -670,7 +677,12 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
                 is WebManager.UiOAuthState.AuthorizationLoading -> {
                     if (signInProgressBar == null) {
                         signInProgressBar =
-                            ProgressDialog.show(this, "", "Signing In", true)
+                            ProgressDialog.show(
+                                this,
+                                getString(R.string.loading_generic),
+                                getString(R.string.loading_signing_in),
+                                true
+                            )
                     }
                 }
 
@@ -681,8 +693,8 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
             }
         }
 
-        mainViewModel.uiOAuthState.observe(this){authState ->
-            when(authState){
+        mainViewModel.uiOAuthState.observe(this) { authState ->
+            when (authState) {
                 null -> {
                 }
                 is WebManager.UiOAuthState.NotAuthorized, is WebManager.UiOAuthState.AuthorizationLoading -> {

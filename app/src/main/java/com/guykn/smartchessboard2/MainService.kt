@@ -6,6 +6,8 @@ import android.os.Binder
 import android.os.IBinder
 import android.util.Log
 import androidx.lifecycle.LifecycleService
+import com.guykn.smartchessboard2.network.lichess.LichessApi
+import com.guykn.smartchessboard2.ui.EventBus
 import com.guykn.smartchessboard2.ui.MainActivity
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -20,6 +22,8 @@ class MainService : LifecycleService() {
         private const val TAG = "MA_MainService"
         private const val NOTIFICATION_CHANNEL_ID = "Notifications"
         private const val NOTIFICATION_ID = 1
+
+        private const val GO_BACK_TO_ACTIVITY_ON_FAILURES = false
     }
 
     @Inject
@@ -61,12 +65,33 @@ class MainService : LifecycleService() {
             repository.broadcastGame.combinePairs(repository.customTabNavigationManager.isTabShown)
                 .collect { (broadcastEvent, isTabShown) ->
                 if (!broadcastEvent.recieved && broadcastEvent.value != null && isTabShown) {
-                    val intent = Intent(this@MainService, MainActivity::class.java)
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    startActivity(intent)
+                    goBackToActivity()
                 }
             }
         }
+
+        // if the user selects an invalid game type or the lichess api is overwhelmed, bring him back to the activity where he'll see a proper error message.
+        if (GO_BACK_TO_ACTIVITY_ON_FAILURES) {
+            coroutineScope.launch {
+                repository.eventBus.errorEvents.collect { errorEvent ->
+                    when (errorEvent) {
+                        is EventBus.ErrorEvent.IllegalGameSelected, is EventBus.ErrorEvent.TooManyRequests -> {
+                            if (repository.customTabNavigationManager.isTabShown.value) {
+                                goBackToActivity()
+                            }
+                        }
+                        else -> {
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun goBackToActivity() {
+        val intent = Intent(this@MainService, MainActivity::class.java)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        startActivity(intent)
     }
 
     private fun createForegroundNotification() {

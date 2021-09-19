@@ -46,13 +46,13 @@ class ExtraOptionsFragment : PreferenceFragmentCompat() {
 
         archiveAllPgnButton.setOnPreferenceClickListener {
             AlertDialog.Builder(requireContext())
-                .setTitle("Are you sure?")
-                .setMessage("All saved games that have not been uploaded to Lichess will be deleted. Games that were already uploaded to Lichess will stay there. ")
+                .setTitle(getString(R.string.confirm_archive_all_pgn_title))
+                .setMessage(getString(R.string.confirm_archive_all_pgn_description))
                 .setCancelable(true)
-                .setPositiveButton("OK") { _, _ ->
+                .setPositiveButton(getString(R.string.confirm_archive_all_pgn_yes)) { _, _ ->
                     mainViewModel.archiveAllPgn()
                 }
-                .setNegativeButton("Cancel"){_, _-> }
+                .setNegativeButton(getString(R.string.confirm_archive_all_pgn_no)){ _, _-> }
                 .show()
             true
         }
@@ -68,6 +68,18 @@ class ExtraOptionsFragment : PreferenceFragmentCompat() {
 
         mainViewModel.chessBoardSettings.observe(viewLifecycleOwner) { chessBoardSettings ->
             learningModeSwitch.isChecked = chessBoardSettings?.learningMode ?: return@observe
+        }
+        mainViewModel.numGamesToUpload.observe(viewLifecycleOwner){ numGames ->
+            when(numGames){
+                0, null->{
+                    archiveAllPgnButton.isEnabled = false
+                    archiveAllPgnButton.summary = getString(R.string.archive_all_pgn_nothing_to_archive)
+                }
+                else->{
+                    archiveAllPgnButton.isEnabled = true
+                    archiveAllPgnButton.summary = getString(R.string.archive_all_pgn_num_files, numGames)
+                }
+            }
         }
     }
 }

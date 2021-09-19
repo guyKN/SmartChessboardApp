@@ -4,8 +4,8 @@ import android.bluetooth.BluetoothDevice
 import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.JsonParseException
-import com.guykn.smartchessboard2.EventBus.ErrorEvent
-import com.guykn.smartchessboard2.EventBus.SuccessEvent
+import com.guykn.smartchessboard2.ui.EventBus.ErrorEvent
+import com.guykn.smartchessboard2.ui.EventBus.SuccessEvent
 import com.guykn.smartchessboard2.bluetooth.*
 import com.guykn.smartchessboard2.bluetooth.ChessBoardModel.BluetoothState.CONNECTED
 import com.guykn.smartchessboard2.network.LichessRateLimitManager
@@ -19,6 +19,7 @@ import com.guykn.smartchessboard2.network.oauth2.GenericNetworkException
 import com.guykn.smartchessboard2.network.oauth2.NetworkException
 import com.guykn.smartchessboard2.network.oauth2.NotSignedInException
 import com.guykn.smartchessboard2.network.oauth2.TooManyRequestsException
+import com.guykn.smartchessboard2.ui.EventBus
 import com.guykn.smartchessboard2.ui.util.EventWithValue
 import dagger.hilt.android.scopes.ServiceScoped
 import kotlinx.coroutines.*
@@ -77,6 +78,9 @@ class Repository @Inject constructor(
     val internetState: StateFlow<WebManager.InternetState> = webManager.internetState
 
     private var lichessGameJob: Job? = null
+    private var broadcastJob: Job? = null
+    private var broadcastUrlJob: Job? = null
+
 
     val uiOAuthState: StateFlow<WebManager.UiOAuthState> = webManager.uiAuthState
 
@@ -106,20 +110,16 @@ class Repository @Inject constructor(
     init {
         // Whether a move is made on the physical chessboard, update the lichess broadcast.
         coroutineScope.launch outerLaunch@{
-            var prevJob: Job? = null
             var prevGameId: String? = null
             chessBoardModel.boardState.combinePairs(isBroadcastActive)
                 .collect { (boardState, isBroadcastActive) ->
-                    Log.d(
-                        TAG,
-                        "collected (boardState, isBroadcastActive).\nboardState: $boardState\nisBroadcastActive: $isBroadcastActive"
-                    )
+                    broadcastJob?.cancel()
+                    broadcastJob = null
                     if (!isBroadcastActive) {
                         return@collect
                     }
                     val pgn = boardState?.pgn ?: return@collect
-                    prevJob?.cancel()
-                    prevJob = launch {
+                    broadcastJob = launch {
                         val currentGameId = chessBoardModel.gameInfo.value?.gameId
                         val broadcastRound: BroadcastRound? = if (prevGameId != currentGameId) {
 //                            if (chessBoardModel.gameActive.value != true) {
@@ -356,7 +356,9 @@ class Repository @Inject constructor(
 
     fun stopBroadcast() {
         _broadcastRound.value = BroadcastEvent(null)
+        _broadcastGame.value = BroadcastGameEvent(null)
         isBroadcastActive.value = false
+        broadcastJob?.cancel()
     }
 
     private suspend fun getFreshBroadcastTournament(): LichessApi.BroadcastTournament {
@@ -428,7 +430,8 @@ class Repository @Inject constructor(
     }
 
     private fun updateBroadcastGameUrl() {
-        coroutineScope.launch {
+        broadcastUrlJob?.cancel()
+        broadcastUrlJob = coroutineScope.launch {
             try {
                 if (_broadcastGame.value.value != null) {
                     // no need to update the broadcast game if it's already loaded.
@@ -441,6 +444,7 @@ class Repository @Inject constructor(
                     TAG,
                     "updateBroadcastGame called while broadcastRound.value.value==null."
                 )
+                yield()
             } catch (e: Exception) {
                 when (e) {
                     is NotSignedInException, is AuthorizationException -> {

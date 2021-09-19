@@ -8,8 +8,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.liveData
 import com.guykn.smartchessboard2.*
-import com.guykn.smartchessboard2.EventBus.ErrorEvent
-import com.guykn.smartchessboard2.EventBus.SuccessEvent
+import com.guykn.smartchessboard2.ui.EventBus.ErrorEvent
+import com.guykn.smartchessboard2.ui.EventBus.SuccessEvent
 import com.guykn.smartchessboard2.bluetooth.ChessBoardModel
 import com.guykn.smartchessboard2.bluetooth.ChessBoardSettings
 import com.guykn.smartchessboard2.bluetooth.GameStartRequest

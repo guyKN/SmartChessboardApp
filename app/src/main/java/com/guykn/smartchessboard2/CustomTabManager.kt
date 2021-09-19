@@ -6,15 +6,17 @@ import android.content.Intent
 import android.content.pm.ResolveInfo
 import android.net.Uri
 import android.util.Log
-import androidx.browser.customtabs.CustomTabsClient
-import androidx.browser.customtabs.CustomTabsIntent
+import androidx.browser.customtabs.*
 import androidx.browser.customtabs.CustomTabsService.ACTION_CUSTOM_TABS_CONNECTION
-import androidx.browser.customtabs.CustomTabsServiceConnection
-import androidx.browser.customtabs.CustomTabsSession
 import androidx.core.content.res.ResourcesCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.scopes.ActivityRetainedScoped
 import javax.inject.Inject
+
+import android.util.TypedValue
+
+
+
 
 
 @ActivityRetainedScoped
@@ -82,10 +84,8 @@ class CustomTabManager @Inject constructor(
     fun mayLaunchUrl(url: String){
         if (!likelyUrlsToLaunch.contains(url)) {
             likelyUrlsToLaunch.add(url)
-            Log.d(TAG, "calling mayLaunchUrl()")
             customTabSession?.mayLaunchUrl(Uri.parse(url), null, null)
                 ?: connectedCallbacks.add {
-                    Log.d(TAG, "calling mayLaunchUrl()")
                     customTabSession?.mayLaunchUrl(Uri.parse(url), null, null)
                 }
         }

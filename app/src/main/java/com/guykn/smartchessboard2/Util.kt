@@ -1,9 +1,11 @@
 package com.guykn.smartchessboard2
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
+import android.util.TypedValue
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MediatorLiveData
@@ -18,6 +20,13 @@ fun <T1, T2> Flow<T1>.combinePairs(other: Flow<T2>): Flow<Pair<T1, T2>> {
 }
 
 fun String.countOccurrences(c: Char): Int = count { it == c }
+
+fun Context.getThemeColor(attribute: Int): Int {
+    val value = TypedValue()
+    this.theme.resolveAttribute(attribute, value, true)
+    return value.data
+}
+
 
 inline fun <T : Any> ifLet(vararg elements: T?, closure: (List<T>) -> Unit) {
     if (elements.all { it != null }) {

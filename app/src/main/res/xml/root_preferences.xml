@@ -3,17 +3,15 @@
     
     <SwitchPreferenceCompat
         app:key="learning_mode"
-        app:title="@string/menu_learning_mode"
-        app:summary="@string/menu_learning_mode_description"/>
+        app:title="@string/settings_learning_mode"
+        app:summary="@string/settings_learning_mode_description"/>
 
     <Preference
         app:key="test_connection"
-        app:title="Test Chessboard"
-        app:summary="@string/menu_test_leds_description"/>
+        app:title="@string/settings_test_chessboard"
+        app:summary="@string/settings_test_chessboard_description"/>
 
     <Preference
         app:key="archive_all_pgn"
-        app:title="Delete Saved Games"
-        app:summary="Games saved on the chessboard will be deleted. Games that were already uploaded to Lichess will remain."/>
-
+        app:title="@string/settings_delete_saved_games"/>
 </PreferenceScreen>
