@@ -53,7 +53,7 @@
     <string name="error_generic">Error: %1$s</string>
     <string name="error_unexpected_sign_out">Unexpectedly Signed Out of Lichess</string>
     <string name="error_unexpected_sign_out_action">Sign In</string>
-    <string name="error_sign_in">Failed to Sign In</string>
+    <string name="error_sign_in">Sign In Failed</string>
     <string name="error_sign_in_action">Try Again</string>
     <string name="error_429">Lichess Servers are overwhelmed. Please try again in %1$d seconds.</string>
     <string name="loading_generic">Loading…</string>

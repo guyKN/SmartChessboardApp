@@ -88,7 +88,10 @@ class ServiceConnector @Inject constructor(@ApplicationContext private val conte
 
 
     fun callWhenConnected(callback: (Repository) -> Unit) {
-        check(!isDestroyed) { "Tried to call callWhenConnected() after serviceConnector was destroyed." }
+        if(isDestroyed) {
+            Log.w(TAG,"Tried to call callWhenConnected() after serviceConnector was destroyed.")
+
+        }
         mainService?.repository.let {
             if (it != null) {
                 callback(it)

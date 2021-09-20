@@ -607,6 +607,10 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
                     val timeUntilServerAvailable =
                         (errorEvent.timeForValidRequests - System.currentTimeMillis())
                     val timeUntilServerAvailableSeconds = (timeUntilServerAvailable / 1000).toInt()
+                    if(timeUntilServerAvailableSeconds <= 0){
+                        // if by now too 429 too many requests is not a problem, no need to show it in UI.
+                        return@observe
+                    }
                     Snackbar.make(
                         coordinatorLayout,
                         resources.getString(R.string.error_429, timeUntilServerAvailableSeconds),

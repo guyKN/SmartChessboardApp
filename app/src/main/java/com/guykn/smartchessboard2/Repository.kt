@@ -525,6 +525,7 @@ class Repository @Inject constructor(
             Log.w(TAG, "tried to stream game while game was already active.")
             return
         }
+        lichessGameJob?.cancel()
         lichessGameJob = coroutineScope.launch {
             isOnlineGameActive.set(true)
             var shouldStop = false

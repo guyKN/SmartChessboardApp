@@ -4,7 +4,7 @@ open class Event {
     var recieved = false
         private set
 
-    fun receive(): Boolean {
+    open fun receive(): Boolean {
         if (recieved) {
             return false
         } else {
