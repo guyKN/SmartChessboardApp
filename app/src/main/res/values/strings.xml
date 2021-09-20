@@ -3,7 +3,7 @@
     <string name="service_description">Connects with the Bluetooth Chessboard and allows online play.</string>
     <string name="menu_broadcast_game">Broadcast Game</string>
     <string name="menu_play_online">Play Online</string>
-    <string name="menu_view_games">View Games</string>
+    <string name="menu_view_games">Game Log</string>
     <string name="computer_strength">Computer Strength:</string>
     <string name="play_as">Play As:</string>
     <string name="title_play_against_computer">Play Vs. Computer</string>
