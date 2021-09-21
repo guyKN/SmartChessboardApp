@@ -101,8 +101,7 @@ class MainService : LifecycleService() {
         val pendingIntent =
             PendingIntent.getActivity(this, 0, startActivityIntent, PendingIntent.FLAG_IMMUTABLE)
         val notification: Notification = Notification.Builder(this, NOTIFICATION_CHANNEL_ID)
-            .setContentTitle("App Running in Background")
-            .setContentText("Tap to open")
+            .setContentTitle(getString(R.string.forground_notification_title))
             .setSmallIcon(R.drawable.ic_notification_icon)
             .setContentIntent(pendingIntent)
             .build()
@@ -112,10 +111,9 @@ class MainService : LifecycleService() {
     private fun createNotificationChannel() {
         val channel = NotificationChannel(
             NOTIFICATION_CHANNEL_ID,
-            "Notifications",
+            getString(R.string.notification_channel_name),
             NotificationManager.IMPORTANCE_LOW
         )
-        channel.description = "Notifications"
         channel.setShowBadge(false)
         val notificationManager = getSystemService(NotificationManager::class.java)
         notificationManager.createNotificationChannel(channel)

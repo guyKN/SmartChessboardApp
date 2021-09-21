@@ -12,6 +12,7 @@ import android.os.Bundle
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
+import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -73,6 +74,9 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
         signInMainText = findViewById(R.id.sign_in_main)!!
         signInSecondaryText = findViewById(R.id.sign_in_secondary)!!
         signInButton = findViewById(R.id.sign_in_button)!!
+
+        signInButton.visibility =
+            if (resources.getBoolean(R.bool.signInButtonInToolbar)) View.VISIBLE else View.GONE
 //        toolbarIcon = findViewById(R.id.toolbar_icon)!!
 
 
@@ -102,7 +106,7 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
                     Log.w(TAG, "Sign in button pressed while in the middle of signing in. ")
                 }
                 is WebManager.UiOAuthState.Authorized -> {
-                    showSignOutDialog()
+                    signOut()
                 }
             }
         }
@@ -251,10 +255,6 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
         }
     }
 
-    override fun signOut() {
-        mainViewModel.signOut()
-    }
-
     override fun startOfflineGame() {
         StartOfflineGameDialog()
             .show(supportFragmentManager, "start_offline_game")
@@ -325,12 +325,12 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
         customTabManager.openChromeTab(this, url)
     }
 
-    private fun showSignOutDialog() {
+    override fun signOut() {
         AlertDialog.Builder(this)
             .setTitle("Are You Sure You Want to Sign Out?")
             .setCancelable(false)
             .setPositiveButton("Yes") { _, _ ->
-                signOut()
+                mainViewModel.signOut()
             }
             .setNegativeButton("No") { _, _ -> }
             .show()
@@ -403,6 +403,10 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
 
 
         mainViewModel.bluetoothState.observe(this) { bluetoothState ->
+            if (isUiTest) {
+                // when doing a ui test, don't show messages when bluetooth is not connected, so the ui can better be tested.
+                return@observe
+            }
             bluetoothMessageDialog?.dismiss()
             bluetoothMessageDialog = null
 
@@ -415,9 +419,7 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
                         .setMessage(R.string.bluetooth_not_supported_description)
                         .setCancelable(false)
                         .setPositiveButton(getString(R.string.bluetooth_not_supported_button)) { _, _ ->
-                            if (!isUiTest) {
-                                finish()
-                            }
+                            finish()
                         }
                         .show()
                 }
@@ -552,7 +554,11 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
                 is EventBus.SuccessEvent.ArchiveAllPgnSuccess -> {
                     Snackbar.make(
                         coordinatorLayout,
-                        resources.getQuantityString(R.plurals.success_archive_games, successEvent.numFiles, successEvent.numFiles),
+                        resources.getQuantityString(
+                            R.plurals.success_archive_games,
+                            successEvent.numFiles,
+                            successEvent.numFiles
+                        ),
                         Snackbar.LENGTH_SHORT
                     )
                         .show()
@@ -607,7 +613,7 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
                     val timeUntilServerAvailable =
                         (errorEvent.timeForValidRequests - System.currentTimeMillis())
                     val timeUntilServerAvailableSeconds = (timeUntilServerAvailable / 1000).toInt()
-                    if(timeUntilServerAvailableSeconds <= 0){
+                    if (timeUntilServerAvailableSeconds <= 0) {
                         // if by now too 429 too many requests is not a problem, no need to show it in UI.
                         return@observe
                     }
@@ -643,7 +649,10 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
         }
 
         mainViewModel.isAwaitingLaunchLichess.observe(this) { isAwaitingLaunchLichess ->
-            Log.d(TAG, "mainViewModel.isAwaitingLaunchLichess changed. isAwaitingLaunchLichess=$isAwaitingLaunchLichess")
+            Log.d(
+                TAG,
+                "mainViewModel.isAwaitingLaunchLichess changed. isAwaitingLaunchLichess=$isAwaitingLaunchLichess"
+            )
             loadingLichessDialog?.dismiss()
             loadingLichessDialog = null
             if (isAwaitingLaunchLichess == true) {

@@ -1,6 +1,12 @@
-<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:android="http://schemas.android.com/apk/res/android">
 
-    
+
+    <Preference
+        app:key="lichess_login"
+        app:title="@string/not_signed_in_button_primary"
+        app:summary="@string/not_signed_in_button_secondary"/>
+
     <SwitchPreferenceCompat
         app:key="learning_mode"
         app:title="@string/settings_learning_mode"

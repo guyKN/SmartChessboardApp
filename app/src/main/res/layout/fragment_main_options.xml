@@ -2,7 +2,8 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:fillViewport="true">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
@@ -14,11 +15,13 @@
             android:layout_height="@dimen/main_button_height"
             android:layout_marginStart="@dimen/button_margin"
             android:layout_marginTop="@dimen/button_margin"
-            android:backgroundTint="@color/mainButtonColor"
+            android:backgroundTint="@color/mainButtonBackground"
             android:drawableTop="@drawable/ic_play_offline_2"
             android:text="@string/menu_play_offline"
-            android:textColor="?colorOnSecondary"
+            android:textColor="@color/mainButtonContent"
+            app:layout_constraintBottom_toTopOf="@+id/start_broadcast"
             app:layout_constraintEnd_toStartOf="@+id/start_online_game"
+            app:layout_constraintHorizontal_bias="0.5"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintVertical_chainStyle="packed" />
@@ -30,11 +33,13 @@
             android:layout_marginStart="@dimen/button_margin"
             android:layout_marginTop="@dimen/button_margin"
             android:layout_marginEnd="@dimen/button_margin"
-            android:backgroundTint="@color/mainButtonColor"
+            android:backgroundTint="@color/mainButtonBackground"
             android:drawableTop="@drawable/ic_play_online_2"
             android:text="@string/menu_play_online"
-            android:textColor="?colorOnSecondary"
+            android:textColor="@color/mainButtonContent"
+            app:layout_constraintBottom_toTopOf="@+id/view_saved_games"
             app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.5"
             app:layout_constraintStart_toEndOf="@+id/start_offline_game"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintVertical_chainStyle="packed" />
@@ -46,11 +51,13 @@
             android:layout_marginStart="@dimen/button_margin"
             android:layout_marginTop="@dimen/button_margin"
             android:layout_marginBottom="@dimen/button_margin"
-            android:backgroundTint="@color/mainButtonColor"
+            android:backgroundTint="@color/mainButtonBackground"
             android:drawableTop="@drawable/ic_broadcast_icon"
             android:text="@string/menu_broadcast_game"
-            android:textColor="?colorOnSecondary"
+            android:textColor="@color/mainButtonContent"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@+id/view_saved_games"
+            app:layout_constraintHorizontal_bias="0.5"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/start_offline_game" />
 
@@ -62,11 +69,13 @@
             android:layout_marginTop="@dimen/button_margin"
             android:layout_marginEnd="@dimen/button_margin"
             android:layout_marginBottom="@dimen/button_margin"
-            android:backgroundTint="@color/mainButtonColor"
+            android:backgroundTint="@color/mainButtonBackground"
             android:drawableTop="@drawable/ic_game_log"
             android:text="@string/menu_view_games"
-            android:textColor="?colorOnSecondary"
+            android:textColor="@color/mainButtonContent"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.5"
             app:layout_constraintStart_toEndOf="@+id/start_broadcast"
             app:layout_constraintTop_toBottomOf="@+id/start_online_game" />
 

@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <color name="mainButtonColor">@color/purple_200</color>
-    <color name="signInButtonColor">@color/teal_200</color>
-</resources>

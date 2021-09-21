@@ -68,6 +68,9 @@
     <string name="invalid_game_description">You have chosen an invalid game mode. Only unlimited, classic, and rapid time controls are supported. No rules variants are supported. </string>
     <string name="invalid_game_action">OK</string>
     <string name="start_game_cancel">Cancel</string>
+    <string name="forground_notification_title">Running in Background</string>
+    <string name="notification_channel_name">Notifications</string>
+    <string name="notification_channel_description">Notifications</string>
 
 
 </resources>
