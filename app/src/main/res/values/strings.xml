@@ -56,7 +56,7 @@
     <string name="error_sign_in">Sign In Failed</string>
     <string name="error_sign_in_action">Try Again</string>
     <string name="error_429">Lichess Servers are overwhelmed. Please try again in %1$d seconds.</string>
-    <string name="loading_generic">Loading…</string>
+    <string name="loading_title">Loading…</string>
     <string name="loading_creating_broadcast">Creating Broadcast</string>
     <string name="loading_start_online_game">Connecting To Lichess</string>
     <string name="loading_uploading_games">Uploading Games</string>
@@ -71,6 +71,7 @@
     <string name="forground_notification_title">Running in Background</string>
     <string name="notification_channel_name">Notifications</string>
     <string name="notification_channel_description">Notifications</string>
+    <string name="loading_connecting_to_service">Connecting to service</string>
 
 
 </resources>

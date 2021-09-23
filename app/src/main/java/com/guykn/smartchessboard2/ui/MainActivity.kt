@@ -400,6 +400,7 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
         var loadingLichessDialog: ProgressDialog? = null
         var uploadingPgnDialog: ProgressDialog? = null
         var signInProgressBar: ProgressDialog? = null
+        var serviceConnectingDialog: ProgressDialog? = null
 
 
         mainViewModel.bluetoothState.observe(this) { bluetoothState ->
@@ -641,7 +642,7 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
             if (isLoading) {
                 loadingBroadcastDialog = ProgressDialog.show(
                     this,
-                    getString(R.string.loading_generic),
+                    getString(R.string.loading_title),
                     getString(R.string.loading_creating_broadcast),
                     true
                 )
@@ -649,17 +650,12 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
         }
 
         mainViewModel.isAwaitingLaunchLichess.observe(this) { isAwaitingLaunchLichess ->
-            Log.d(
-                TAG,
-                "mainViewModel.isAwaitingLaunchLichess changed. isAwaitingLaunchLichess=$isAwaitingLaunchLichess"
-            )
             loadingLichessDialog?.dismiss()
             loadingLichessDialog = null
             if (isAwaitingLaunchLichess == true) {
-                Log.d(TAG, "Showing progress bar.")
                 loadingLichessDialog = ProgressDialog.show(
                     this,
-                    getString(R.string.loading_generic),
+                    getString(R.string.loading_title),
                     getString(R.string.loading_start_online_game),
                     true
                 )
@@ -674,10 +670,11 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
                 }
                 Repository.PgnFilesUploadState.ExchangingBluetoothData,
                 is Repository.PgnFilesUploadState.UploadingToLichess -> {
-                    if (uploadingPgnDialog == null) {
+                    if (uploadingPgnDialog?.isShowing != true) {
+                        uploadingPgnDialog?.dismiss()
                         uploadingPgnDialog = ProgressDialog.show(
                             this,
-                            getString(R.string.loading_generic),
+                            getString(R.string.loading_title),
                             getString(R.string.loading_uploading_games),
                             true
                         )
@@ -695,11 +692,12 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
                     signInProgressBar = null
                 }
                 is WebManager.UiOAuthState.AuthorizationLoading -> {
-                    if (signInProgressBar == null) {
+                    if (signInProgressBar?.isShowing != true) {
+                        signInProgressBar?.dismiss()
                         signInProgressBar =
                             ProgressDialog.show(
                                 this,
-                                getString(R.string.loading_generic),
+                                getString(R.string.loading_title),
                                 getString(R.string.loading_signing_in),
                                 true
                             )
@@ -729,5 +727,21 @@ class MainActivity : AppCompatActivity(), CompanionDeviceConnector.IntentCallbac
             }
         }
 
+        mainViewModel.isServiceConnected.observe(this) { isServiceConnected ->
+            if (isServiceConnected != true) {
+                if (serviceConnectingDialog?.isShowing != true) {
+                    serviceConnectingDialog?.dismiss()
+                    serviceConnectingDialog = ProgressDialog.show(
+                        this,
+                        getString(R.string.loading_title),
+                        getString(R.string.loading_connecting_to_service),
+                        true
+                    )
+                }
+            }else{
+                serviceConnectingDialog?.dismiss()
+                serviceConnectingDialog = null
+            }
+        }
     }
 }
