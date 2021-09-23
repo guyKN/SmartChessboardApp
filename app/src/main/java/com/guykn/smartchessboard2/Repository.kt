@@ -556,7 +556,8 @@ class Repository @Inject constructor(
                                     "Only standard games with rapid or classical time controls are allowed. "
                                 )
                                 eventBus.errorEvents.value = ErrorEvent.IllegalGameSelected()
-                                shouldStop = true
+                                // shouldStop is not set to true, because this now that it's know that this game is invalid, it will be excluded, and we can look for other games.
+                                // shouldStop = true
                             }
                             is NotSignedInException,
                             is AuthorizationException -> {

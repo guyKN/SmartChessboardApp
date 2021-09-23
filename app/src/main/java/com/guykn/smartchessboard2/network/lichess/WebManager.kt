@@ -21,6 +21,7 @@ import net.openid.appauth.AuthorizationResponse
 import net.openid.appauth.AuthorizationService
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.ResponseBody
 import retrofit2.Response
 import ru.gildor.coroutines.okhttp.await
 import java.io.IOException
@@ -67,6 +68,8 @@ class WebManager @Inject constructor(
 
     private val importGameLock = Mutex()
 
+    private val illegalGameIds: MutableList<String> = mutableListOf<String>()
+
     init {
         coroutineScope.launch {
             isLoadingOnlineGame.collect {
@@ -74,7 +77,6 @@ class WebManager @Inject constructor(
             }
         }
     }
-
 
     private val authService = AuthorizationService(context)
 
@@ -187,7 +189,10 @@ class WebManager @Inject constructor(
             else -> {
                 response.errorBody()?.let { responseBody ->
                     val errorString = responseBody.stringCoroutine()
-                    Log.w(TAG, "Recieved http error code: ${response.code()}. \nResponse body:\n$errorString")
+                    Log.w(
+                        TAG,
+                        "Recieved http error code: ${response.code()}. \nResponse body:\n$errorString"
+                    )
                 }
                 throw GenericNetworkException("Error creating broadcast tournament: Received http error code: ${response.code()}. ")
             }
@@ -222,7 +227,10 @@ class WebManager @Inject constructor(
             else -> {
                 response.errorBody()?.let { responseBody ->
                     val errorString = responseBody.stringCoroutine()
-                    Log.w(TAG, "Received http error code: ${response.code()}. \nResponse body:\n$errorString")
+                    Log.w(
+                        TAG,
+                        "Received http error code: ${response.code()}. \nResponse body:\n$errorString"
+                    )
                 }
                 throw GenericNetworkException("Error creating broadcast round: Received http error code: ${response.code()}. ")
             }
@@ -306,9 +314,9 @@ class WebManager @Inject constructor(
         when (response.code()) {
             200 -> {
                 response.body()?.let { broadcastRoundResponse ->
-                    return if (broadcastRoundResponse.games.isNotEmpty()){
+                    return if (broadcastRoundResponse.games.isNotEmpty()) {
                         broadcastRoundResponse.games[0]
-                    }else{
+                    } else {
                         null
                     }
                 }
@@ -321,63 +329,6 @@ class WebManager @Inject constructor(
             }
             429 -> on429httpStatus()
             else -> throw GenericNetworkException("Received http error code: ${response.code()} when getting broadcast game. ")
-        }
-    }
-
-    val gameEvents: Flow<LichessApi.GameEvent> = flow<LichessApi.GameEvent> {
-        networkCall {
-            val authorization: String = formatAuthHeader(getFreshToken())
-            val request = Request.Builder()
-                .url("https://lichess.org/api/stream/event")
-                .header("Authorization", authorization)
-                .build()
-
-            val response = try {
-                _isLoadingOnlineGame.value = BoolEvent(true)
-                okHttpClient.newCall(request).await()
-            } finally {
-                coroutineScope.launch {
-                    // Because it takes a few milliseconds for lichess to send the information
-                    // about current games through the stream, we don't know for sure if the user if
-                    // the user is in the middle of a game or not immidiatly when the connection is created.
-                    // Since it will certainly take less than 1 second for current games to be sent,
-                    // we wait 1 second before setting isLoadingOnlineGame to false so that nothing is missed.
-                    delay(1000)
-                    _isLoadingOnlineGame.value = BoolEvent(false)
-                }
-            }
-
-
-            response.use {
-                when (val code = response.code) {
-                    200 -> {
-                        Log.d(TAG, "starting to read lines")
-                        _internetState.value = InternetState.Connected
-                        response.body?.lines?.collect { line ->
-                            Log.d(TAG, "read line: $line")
-                            val event = gson.fromJson(line, LichessApi.GameEvent::class.java)
-                            Log.d(TAG, "parsed json: $event")
-                            emit(event)
-                        }
-                            ?: throw GenericNetworkException("Received http code 200, but no response body. ")
-                    }
-                    401 -> {
-                        Log.w(TAG, "Authorization is invalid or has expired, signing out.")
-                        signOut()
-                        throw NotSignedInException("Error streaming game events: Received http code 401 unauthorized. ")
-                    }
-                    429 -> on429httpStatus()
-                    else -> {
-                        throw GenericNetworkException("Lichess returned http error code: $code.")
-                    }
-                }
-            }
-        }
-    }
-
-    val gameStartStream: Flow<LichessApi.Game> = gameEvents.transform { event ->
-        if (event.type == "gameStart" && event.game != null) {
-            emit(event.game)
         }
     }
 
@@ -409,19 +360,12 @@ class WebManager @Inject constructor(
                     200 -> {
                         Log.d(TAG, "starting to read lines")
                         _internetState.value = InternetState.Connected
-                        val body = response.body ?: throw GenericNetworkException("Received http code 200, but no response body. ")
+                        val body = response.body
+                            ?: throw GenericNetworkException("Received http code 200, but no response body. ")
 
-                        return@withContext body.lines.map<String, LichessApi.GameEvent?> { line ->
-                            Log.d(TAG, "read line: $line")
-                            val event = gson.fromJson(line, LichessApi.GameEvent::class.java)
-                            Log.d(TAG, "parsed json: $event")
-                            event
-
-                        }.transform { event ->
-                            if (event?.type == "gameStart" && event.game != null) {
-                                emit(event.game)
-                            }
-                        }.firstOrNull()
+                        return@withContext body.parseGameEvents()
+                            .filterGameStartEvents()
+                            .firstOrNull()
                     }
                     401 -> {
                         Log.w(TAG, "Authorization is invalid or has expired, signing out.")
@@ -433,6 +377,26 @@ class WebManager @Inject constructor(
                         throw GenericNetworkException("Lichess returned http error code: $code.")
                     }
                 }
+            }
+        }
+    }
+
+    private fun ResponseBody.parseGameEvents(): Flow<LichessApi.GameEvent> {
+        return this.lines().map<String, LichessApi.GameEvent?> { line ->
+            Log.d(TAG, "read line: $line")
+            val event = gson.fromJson(line, LichessApi.GameEvent::class.java)
+            Log.d(TAG, "parsed json: $event")
+            event
+        }.filterNotNull()
+    }
+
+    private fun Flow<LichessApi.GameEvent>.filterGameStartEvents(): Flow<LichessApi.Game> {
+        return this.transform { event ->
+            if (event.type == "gameStart" &&
+                event.game != null &&
+                !illegalGameIds.contains(event.game.id)
+            ) {
+                emit(event.game)
             }
         }
     }
@@ -452,7 +416,7 @@ class WebManager @Inject constructor(
                     200 -> {
                         _internetState.value = InternetState.Connected
                         var playerColor: String? = null
-                        response.body?.lines?.collect { line ->
+                        response.body?.lines()?.collect { line ->
                             try {
                                 Log.d(TAG, "Line from lichess game stream: \n$line")
                                 val gameStreamLine =
@@ -460,10 +424,14 @@ class WebManager @Inject constructor(
                                 when (gameStreamLine.type) {
                                     "gameFull" -> {
                                         if (!gameStreamLine.isValidGame()) {
+                                            illegalGameIds.add(game.id)
                                             throw LichessApi.InvalidGameException("User Tried to Connect to an invalid game. Only rapid and classic time controls are supported. ")
                                         }
                                         playerColor = gameStreamLine.playerColor(userInfo)
-                                            ?: throw LichessApi.InvalidGameException("User tried to play in game a he does not own.")
+                                            ?: kotlin.run {
+                                                illegalGameIds.add(game.id)
+                                                throw LichessApi.InvalidGameException("User tried to play in game a he does not own.")
+                                            }
 
                                         val stateLine = gameStreamLine.state
                                             ?: throw LichessApi.InvalidMessageException("field 'state' must be non-null for type=='gameFull'")
@@ -504,7 +472,8 @@ class WebManager @Inject constructor(
                             ?: throw GenericNetworkException("Received http code 200, but no response body. ")
 
                     }
-                    400 ->{
+                    400 -> {
+                        illegalGameIds.add(game.id)
                         throw LichessApi.InvalidGameException("Recieved http code 400 when streaming game. Most likely because user tried to play an illegal game mode or time control. ")
                     }
                     401 -> {

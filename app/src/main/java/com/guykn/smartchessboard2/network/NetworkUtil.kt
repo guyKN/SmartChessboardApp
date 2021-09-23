@@ -10,8 +10,7 @@ import okio.Buffer
 import java.nio.charset.StandardCharsets
 
 const val TAG = "MA_NetworkUtil"
-val ResponseBody.lines: Flow<String>
-    get() = flow {
+fun ResponseBody.lines(): Flow<String> = flow {
         val buffer = Buffer()
         while (!source().exhausted()) {
             yield()
